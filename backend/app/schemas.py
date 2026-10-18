@@ -85,6 +85,10 @@ class ReferenceAssetResponse(BaseModel):
     image: ImageResponse
 
 
+class ReferenceAssetUpdate(BaseModel):
+    name: str = Field(min_length=1, max_length=160)
+
+
 class ReferenceResponse(BaseModel):
     id: str
     position: int
@@ -106,6 +110,8 @@ class GenerationResponse(BaseModel):
     parameters: dict[str, Any]
     error_code: str | None
     error_message: str | None
+    favorite: bool = False
+    rating: int | None = None
     created_at: datetime
     started_at: datetime | None
     completed_at: datetime | None
@@ -119,6 +125,11 @@ class GenerationList(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class GenerationPreferenceInput(BaseModel):
+    favorite: bool = False
+    rating: int = Field(default=0, ge=0, le=5)
 
 
 class PromptTemplateInput(BaseModel):

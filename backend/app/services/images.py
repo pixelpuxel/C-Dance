@@ -72,6 +72,36 @@ def make_thumbnail(data: bytes, max_size: int) -> bytes:
         raise ValueError("Vorschaubild konnte nicht erstellt werden.") from exc
 
 
+def export_image(data: bytes, output_format: str) -> tuple[bytes, str, str]:
+    """Convert a stored image for downloads without changing the original."""
+    formats = {
+        "png": ("PNG", "image/png", "png"),
+        "jpeg": ("JPEG", "image/jpeg", "jpg"),
+        "webp": ("WEBP", "image/webp", "webp"),
+        "pdf": ("PDF", "application/pdf", "pdf"),
+    }
+    target = formats.get(output_format.lower())
+    if target is None:
+        raise ValueError("Nicht unterstütztes Exportformat.")
+    pillow_format, mime_type, extension = target
+    try:
+        with Image.open(io.BytesIO(data)) as source:
+            image = ImageOps.exif_transpose(source)
+            if pillow_format in {"JPEG", "PDF"} and image.mode != "RGB":
+                background = Image.new("RGB", image.size, "white")
+                if "A" in image.getbands():
+                    background.paste(image, mask=image.getchannel("A"))
+                else:
+                    background.paste(image.convert("RGB"))
+                image = background
+            output = io.BytesIO()
+            options = {"quality": 92, "optimize": True} if pillow_format in {"JPEG", "WEBP"} else {}
+            image.save(output, pillow_format, **options)
+            return output.getvalue(), mime_type, extension
+    except (UnidentifiedImageError, OSError, ValueError) as exc:
+        raise ValueError("Bild konnte nicht exportiert werden.") from exc
+
+
 def prepare_provider_image(data: bytes, max_dimension: int = 6000) -> tuple[bytes, str]:
     """Create a display-oriented JPEG for Ark while preserving the stored original."""
     try:

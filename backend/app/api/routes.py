@@ -2,7 +2,7 @@ import asyncio
 import json
 from datetime import UTC, datetime
 import hmac
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, Response, StreamingResponse
@@ -32,14 +32,16 @@ from app.schemas import (
     PromptTemplateInput,
     PromptTemplateResponse,
     ReferenceAssetResponse,
+    ReferenceAssetUpdate,
     ProviderConfigurationInput,
     ProviderConfigurationResponse,
     SettingsResponse,
     TokenResponse,
     UserResponse,
+    GenerationPreferenceInput,
 )
 from app.services.generations import clone_generation, create_generation, load_generation, parse_parameters, parse_string_list
-from app.services.images import inspect_image, make_thumbnail
+from app.services.images import export_image, inspect_image, make_thumbnail
 from app.services.provider_config import provider_api_key, provider_status, remove_provider_api_key, save_provider_api_key
 from app.services.serializers import generation_dict, image_dict, prompt_dict, reference_asset_dict
 from app.services.storage import get_storage
@@ -239,6 +241,20 @@ def get_generation(generation_id: str, user: User = Depends(get_current_user), d
     return generation_dict(load_generation(db, generation_id, user.id))
 
 
+@router.put("/generations/{generation_id}/preference", response_model=GenerationResponse, tags=["Generierungen"])
+def update_generation_preference(
+    generation_id: str,
+    payload: GenerationPreferenceInput,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    generation = load_generation(db, generation_id, user.id)
+    generation.favorite = payload.favorite
+    generation.rating = payload.rating or None
+    db.commit()
+    return generation_dict(load_generation(db, generation_id, user.id))
+
+
 @router.delete("/generations/{generation_id}", tags=["Generierungen"])
 def delete_generation(generation_id: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     generation = load_generation(db, generation_id, user.id)
@@ -343,6 +359,15 @@ def list_images(limit: int = Query(50, ge=1, le=100), user: User = Depends(get_c
     return [image_dict(item) for item in items]
 
 
+@router.get("/images/{image_id}", tags=["Bilder"])
+def get_image(image_id: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Issue a fresh, short-lived download URL for one owned image."""
+    image = db.get(GenerationImage, image_id)
+    if not image or image.user_id != user.id:
+        raise HTTPException(404, detail={"code": "image_not_found", "message": "Bild nicht gefunden."})
+    return image_dict(image)
+
+
 @router.get("/images/{image_id}/content", tags=["Bilder"])
 def image_content(image_id: str, token: str = Query(...), thumbnail: int | None = Query(default=None, ge=64, le=1024), db: Session = Depends(get_db)):
     if not verify_download_token(token, image_id):
@@ -359,6 +384,30 @@ def image_content(image_id: str, token: str = Query(...), thumbnail: int | None 
         return Response(content=content, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=1800"})
     path = storage.path(image.storage_key)
     return FileResponse(path, media_type=image.mime_type, filename=image.original_filename or f"seedream-{image.id}")
+
+
+@router.get("/images/{image_id}/export", tags=["Bilder"])
+def image_export(
+    image_id: str,
+    token: str = Query(...),
+    format: Literal["png", "jpeg", "webp", "pdf"] = Query("png"),
+    db: Session = Depends(get_db),
+):
+    if not verify_download_token(token, image_id):
+        raise HTTPException(401, detail={"code": "invalid_download_token", "message": "Der Download-Link ist ungültig oder abgelaufen."})
+    image = db.get(GenerationImage, image_id)
+    if not image:
+        raise HTTPException(404, detail={"code": "image_not_found", "message": "Bild nicht gefunden."})
+    try:
+        content, mime_type, extension = export_image(get_storage().read(image.storage_key), format)
+    except ValueError as exc:
+        raise HTTPException(422, detail={"code": "export_failed", "message": str(exc)}) from exc
+    stem = (image.original_filename or f"seedream-{image.id}").rsplit(".", 1)[0]
+    return Response(
+        content=content,
+        media_type=mime_type,
+        headers={"Content-Disposition": f'attachment; filename="{stem}.{extension}"'},
+    )
 
 
 @router.get("/reference-assets", response_model=list[ReferenceAssetResponse], tags=["Referenzbild-Bibliothek"])
@@ -410,6 +459,21 @@ def delete_reference_asset(asset_id: str, user: User = Depends(get_current_user)
         raise HTTPException(404, detail={"code": "reference_asset_not_found", "message": "Gespeichertes Referenzbild nicht gefunden."})
     db.delete(item)
     db.commit()
+
+
+@router.put("/reference-assets/{asset_id}", response_model=ReferenceAssetResponse, tags=["Referenzbild-Bibliothek"])
+def update_reference_asset(asset_id: str, payload: ReferenceAssetUpdate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    item = db.scalar(
+        select(ReferenceAsset)
+        .where(ReferenceAsset.id == asset_id, ReferenceAsset.user_id == user.id)
+        .options(selectinload(ReferenceAsset.image))
+    )
+    if not item:
+        raise HTTPException(404, detail={"code": "reference_asset_not_found", "message": "Gespeichertes Referenzbild nicht gefunden."})
+    item.name = payload.name.strip()
+    db.commit()
+    db.refresh(item)
+    return reference_asset_dict(item)
 
 
 @router.get("/prompts", response_model=list[PromptTemplateResponse], tags=["Prompt-Bibliothek"])

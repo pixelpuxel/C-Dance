@@ -32,6 +32,8 @@ def generation_dict(generation: Generation) -> dict:
         "parameters": generation.parameters,
         "error_code": generation.error_code,
         "error_message": generation.error_message,
+        "favorite": generation.favorite,
+        "rating": generation.rating,
         "created_at": generation.created_at,
         "started_at": generation.started_at,
         "completed_at": generation.completed_at,

@@ -95,6 +95,39 @@ def test_image_thumbnail_is_small_jpeg_and_original_remains_available(client, to
     assert original.headers["content-type"] == "image/png"
 
 
+def test_authenticated_image_lookup_refreshes_download_url(client, token):
+    uploaded = client.post(
+        "/api/v1/images",
+        headers=headers(token),
+        files={"image": ("reference.png", png(), "image/png")},
+    )
+    assert uploaded.status_code == 201, uploaded.text
+
+    refreshed = client.get(f"/api/v1/images/{uploaded.json()['id']}", headers=headers(token))
+
+    assert refreshed.status_code == 200, refreshed.text
+    assert refreshed.json()["id"] == uploaded.json()["id"]
+    assert "token=" in refreshed.json()["download_url"]
+
+
+@pytest.mark.parametrize(
+    ("format", "mime"),
+    [("png", "image/png"), ("jpeg", "image/jpeg"), ("webp", "image/webp"), ("pdf", "application/pdf")],
+)
+def test_image_can_be_exported_in_download_formats(client, token, format, mime):
+    uploaded = client.post(
+        "/api/v1/images",
+        headers=headers(token),
+        files={"image": ("reference.png", png(), "image/png")},
+    )
+    assert uploaded.status_code == 201, uploaded.text
+    parsed = urlsplit(uploaded.json()["download_url"])
+    exported = client.get(f"/api/v1/images/{uploaded.json()['id']}/export?{parsed.query}&format={format}")
+    assert exported.status_code == 200, exported.text
+    assert exported.headers["content-type"] == mime
+    assert "attachment" in exported.headers["content-disposition"]
+
+
 def test_reference_asset_library_upload_reuse_and_delete(client, token):
     created = client.post(
         "/api/v1/reference-assets",
@@ -118,6 +151,14 @@ def test_reference_asset_library_upload_reuse_and_delete(client, token):
     )
     assert reused.status_code == 201, reused.text
     assert reused.json()["image"]["id"] == asset["image"]["id"]
+
+    renamed = client.put(
+        f"/api/v1/reference-assets/{asset['id']}",
+        headers=headers(token),
+        json={"name": "Gesicht Frau neu"},
+    )
+    assert renamed.status_code == 200, renamed.text
+    assert renamed.json()["name"] == "Gesicht Frau neu"
     assert client.delete(f"/api/v1/reference-assets/{asset['id']}", headers=headers(token)).status_code == 204
 
 
@@ -200,6 +241,41 @@ def test_variation_uses_result_as_first_reference_but_regenerate_keeps_original_
     assert variation.json()["references"][0]["purpose"] == "variation_source"
     assert regenerate.status_code == 202, regenerate.text
     assert regenerate.json()["references"] == []
+
+
+def test_generation_favorite_and_rating_are_synchronized(client, token):
+    with SessionLocal() as db:
+        generation = Generation(
+            user_id="test-user", kind=GenerationKind.generate, status=GenerationStatus.completed,
+            prompt="Test", final_prompt="Test", model="dola-seedream-5-0-pro-260628",
+            aspect_ratio="1:1", resolution="2K", parameters={},
+        )
+        db.add(generation)
+        db.commit()
+        generation_id = generation.id
+
+    updated = client.put(
+        f"/api/v1/generations/{generation_id}/preference",
+        headers=headers(token),
+        json={"favorite": True, "rating": 4},
+    )
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["favorite"] is True
+    assert updated.json()["rating"] == 4
+
+    history = client.get("/api/v1/generations", headers=headers(token))
+    item = next(item for item in history.json()["items"] if item["id"] == generation_id)
+    assert item["favorite"] is True
+    assert item["rating"] == 4
+
+    cleared = client.put(
+        f"/api/v1/generations/{generation_id}/preference",
+        headers=headers(token),
+        json={"favorite": False, "rating": 0},
+    )
+    assert cleared.status_code == 200
+    assert cleared.json()["favorite"] is False
+    assert cleared.json()["rating"] is None
 
 
 def test_delete_generation_removes_owned_files_but_preserves_library_images(client, token):
