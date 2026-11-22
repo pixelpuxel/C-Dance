@@ -1,0 +1,427 @@
+default_platform(:ios)
+
+require "fileutils"
+require "digest"
+require "json"
+require "net/http"
+require "shellwords"
+require "uri"
+require "xcodeproj"
+
+platform :ios do
+  APP_NAME = "CDance"
+  STORE_NAME = "C-Dance"
+  BUNDLE_ID = "info.schreiber.cdance"
+  TEAM_ID = "TVU2AD92HJ"
+
+  def root
+    File.expand_path("..", __dir__)
+  end
+
+  def local_environment(path)
+    expanded = File.expand_path(path)
+    return {} unless File.file?(expanded)
+    File.readlines(expanded).each_with_object({}) do |line, values|
+      match = line.match(/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/)
+      next unless match
+      value = match[2].strip
+      value = value[1..-2] if value.length >= 2 && %w[' "].include?(value[0]) && value[-1] == value[0]
+      values[match[1]] = value
+    end
+  end
+
+  def secure_configuration
+    local_environment("~/.playplaner/asc.env").merge(local_environment("~/.config/fundort/app-review.env"))
+  end
+
+  def api_key
+    secure = secure_configuration
+    path = ENV["APP_STORE_CONNECT_API_KEY_PATH"] || Dir[File.expand_path("~/.appstoreconnect/private_keys/AuthKey_*.p8")].first
+    UI.user_error!("App-Store-Connect-Schlüsseldatei fehlt") unless File.file?(path)
+    key_id = ENV["APP_STORE_CONNECT_API_KEY_ID"] || File.basename(path)[/^AuthKey_(.+)\.p8$/, 1]
+    issuer_id = ENV["APP_STORE_CONNECT_ISSUER_ID"] || secure["APP_STORE_CONNECT_ISSUER_ID"]
+    UI.user_error!("App-Store-Connect-Schlüsselkennung oder Issuer fehlt") if key_id.to_s.empty? || issuer_id.to_s.empty?
+    ENV["APP_STORE_CONNECT_API_KEY_PATH"] ||= path
+    ENV["APP_STORE_CONNECT_API_KEY_ID"] ||= key_id
+    ENV["APP_STORE_CONNECT_ISSUER_ID"] ||= issuer_id
+    app_store_connect_api_key(key_id: key_id, issuer_id: issuer_id, key_filepath: path, duration: 1200, in_house: false)
+  end
+
+  def simulator
+    devices = JSON.parse(sh("xcrun", "simctl", "list", "devices", "available", "-j", log: false)).fetch("devices").values.flatten
+    requested_id = ENV["CDANCE_SIMULATOR_UDID"]
+    return devices.find { |device| device.fetch("udid") == requested_id } if requested_id
+    devices.find { |device| device.fetch("name") == ENV.fetch("CDANCE_SIMULATOR_NAME", "iPhone 17 Pro Max") } ||
+      devices.find { |device| device.fetch("name").start_with?("iPhone") } || UI.user_error!("Kein iPhone-Simulator verfügbar")
+  end
+
+  def project
+    File.join(root, "ios", "CDance.xcodeproj")
+  end
+
+  def project_values
+    item = Xcodeproj::Project.open(project)
+    target = item.targets.find { |candidate| candidate.name == APP_NAME }
+    UI.user_error!("App-Target fehlt") unless target
+    [item, target]
+  end
+
+  def version
+    _item, target = project_values
+    target.build_configurations.first.build_settings.fetch("MARKETING_VERSION").to_s
+  end
+
+  def build_number
+    item, target = project_values
+    (item.build_configurations + target.build_configurations).map { |config| config.build_settings.fetch("CURRENT_PROJECT_VERSION", "1").to_i }.max.to_s
+  end
+
+  def increment_build
+    item, target = project_values
+    number = build_number.to_i + 1
+    (item.build_configurations + item.targets.flat_map(&:build_configurations)).each do |config|
+      config.build_settings["CURRENT_PROJECT_VERSION"] = number.to_s
+      config.build_settings["VERSIONING_SYSTEM"] = "apple-generic"
+    end
+    item.save
+    number.to_s
+  end
+
+  def app(create: false)
+    found = Spaceship::ConnectAPI::App.find(BUNDLE_ID)
+    return found if found
+    UI.user_error!("App fehlt in App Store Connect") unless create
+    bundle = Spaceship::ConnectAPI::BundleId.find(BUNDLE_ID)
+    bundle ||= Spaceship::ConnectAPI::BundleId.create(name: STORE_NAME, platform: "IOS", identifier: BUNDLE_ID)
+    UI.user_error!("Bundle-ID konnte nicht angelegt werden") unless bundle
+    begin
+      Spaceship::ConnectAPI::App.create(name: STORE_NAME, version_string: "1.0", sku: "cdance-ios-2026", primary_locale: "de-DE", bundle_id: BUNDLE_ID, platforms: ["IOS"])
+      return Spaceship::ConnectAPI::App.find(BUNDLE_ID) if Spaceship::ConnectAPI::App.find(BUNDLE_ID)
+    rescue StandardError
+      UI.message("Der API-Schlüssel darf den App-Datensatz nicht anlegen; Apple-ID-Fallback wird verwendet")
+    end
+    apple_id = ENV["APP_STORE_CONNECT_APPLE_ID"] || secure_configuration["APP_STORE_CONNECT_APPLE_ID"]
+    UI.user_error!("Apple-ID für das Anlegen des App-Datensatzes fehlt") if apple_id.to_s.empty?
+    session_client = Spaceship::ConnectAPI.login(apple_id, nil, portal_team_id: TEAM_ID, skip_select_team: true)
+    session_bundle = Spaceship::ConnectAPI::BundleId.find(BUNDLE_ID, client: session_client)
+    session_bundle ||= Spaceship::ConnectAPI::BundleId.create(client: session_client, name: STORE_NAME, platform: "IOS", identifier: BUNDLE_ID)
+    Spaceship::ConnectAPI::App.create(client: session_client, name: STORE_NAME, version_string: "1.0", sku: "cdance-ios-2026", primary_locale: "de-DE", bundle_id: session_bundle.identifier, platforms: ["IOS"])
+    Spaceship::ConnectAPI::App.find(BUNDLE_ID, client: session_client) || UI.user_error!("App konnte nicht angelegt werden")
+  end
+
+  def internal_group(app_record)
+    group = app_record.get_beta_groups.find { |candidate| candidate.name == "Interne Tester" && candidate.is_internal_group }
+    unless group
+      uri = URI("https://api.appstoreconnect.apple.com/v1/betaGroups")
+      request = Net::HTTP::Post.new(uri)
+      request["Authorization"] = "Bearer #{Spaceship::ConnectAPI.token.text}"
+      request["Content-Type"] = "application/json"
+      request.body = JSON.generate(data: { type: "betaGroups", attributes: { name: "Interne Tester", isInternalGroup: true, hasAccessToAllBuilds: true }, relationships: { app: { data: { type: "apps", id: app_record.id } } } })
+      response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) { |http| http.request(request) }
+      UI.user_error!("Interne Testgruppe konnte nicht angelegt werden (HTTP #{response.code})") unless response.code.to_i == 201
+      group = app_record.get_beta_groups.find { |candidate| candidate.name == "Interne Tester" && candidate.is_internal_group }
+    end
+    UI.user_error!("Interne Testgruppe fehlt") unless group
+    group
+  end
+
+  def tester_email
+    ENV["CDANCE_TESTER_EMAIL"] || secure_configuration["APP_STORE_CONNECT_APPLE_ID"] || UI.user_error!("Testeradresse fehlt")
+  end
+
+  def assign_tester(app_record)
+    email = tester_email
+    group = internal_group(app_record)
+    tester = app_record.get_beta_testers(filter: { email: email }, includes: "apps,betaGroups").first
+    unless tester
+      user = Spaceship::ConnectAPI::User.all.find { |candidate| candidate.email.to_s.casecmp?(email) }
+      UI.user_error!("Tester ist kein Teammitglied") unless user
+      group.post_bulk_beta_tester_assignments(beta_testers: [{ email: email, firstName: user.first_name, lastName: user.last_name }])
+      8.times do
+        sleep(5)
+        tester = app_record.get_beta_testers(filter: { email: email }, includes: "apps,betaGroups").first
+        break if tester
+      end
+    end
+    UI.user_error!("Tester-Datensatz fehlt") unless tester
+    members = Spaceship::ConnectAPI.get_beta_testers(filter: { betaGroups: group.id }).all_pages.flat_map(&:to_models)
+    group.add_beta_testers(beta_tester_ids: [tester.id]) unless members.any? { |member| member.id == tester.id }
+  end
+
+  def live_build(app_record, selected_version, selected_build)
+    Spaceship::ConnectAPI::Build.all(app_id: app_record.id, version: selected_version, build_number: selected_build, platform: Spaceship::ConnectAPI::Platform::IOS).first
+  end
+
+  def archive
+    increment_build unless ENV["CDANCE_REUSE_BUILD_NUMBER"] == "1"
+    selected_version = version
+    selected_build = build_number
+    archive_path = File.join(root, "build", "C-Dance-#{selected_build}.xcarchive")
+    export_path = File.join(root, "build", "C-Dance-#{selected_build}-export")
+    FileUtils.rm_rf(archive_path) if archive_path.start_with?(File.join(root, "build") + "/")
+    FileUtils.rm_rf(export_path) if export_path.start_with?(File.join(root, "build") + "/")
+    provisioning = ["-allowProvisioningUpdates", "-authenticationKeyPath", Shellwords.escape(ENV.fetch("APP_STORE_CONNECT_API_KEY_PATH")), "-authenticationKeyID", Shellwords.escape(ENV.fetch("APP_STORE_CONNECT_API_KEY_ID")), "-authenticationKeyIssuerID", Shellwords.escape(ENV.fetch("APP_STORE_CONNECT_ISSUER_ID"))].join(" ")
+    build_app(project: project, scheme: APP_NAME, configuration: "Release", destination: "generic/platform=iOS", clean: true, archive_path: archive_path, output_directory: export_path, output_name: "CDance.ipa", export_method: "app-store", export_options: File.join(root, "ExportOptions.plist"), xcargs: provisioning)
+    ipa = File.join(export_path, "CDance.ipa")
+    verify_path = File.join(root, "build", "C-Dance-#{selected_build}-verify")
+    FileUtils.rm_rf(verify_path); FileUtils.mkdir_p(verify_path)
+    sh("ditto", "-x", "-k", ipa, verify_path)
+    app_path = Dir[File.join(verify_path, "Payload", "*.app")].first || UI.user_error!("App-Bundle fehlt")
+    info = File.join(app_path, "Info.plist")
+    UI.user_error!("Falsche Bundle-ID") unless sh("/usr/libexec/PlistBuddy", "-c", "Print :CFBundleIdentifier", info).strip == BUNDLE_ID
+    UI.user_error!("Falsche Version") unless sh("/usr/libexec/PlistBuddy", "-c", "Print :CFBundleShortVersionString", info).strip == selected_version
+    UI.user_error!("Falsche Buildnummer") unless sh("/usr/libexec/PlistBuddy", "-c", "Print :CFBundleVersion", info).strip == selected_build
+    UI.user_error!("Export-Compliance fehlt") unless sh("/usr/libexec/PlistBuddy", "-c", "Print :ITSAppUsesNonExemptEncryption", info).strip.downcase == "false"
+    device_families = sh("/usr/libexec/PlistBuddy", "-c", "Print :UIDeviceFamily", info).scan(/\d+/).map(&:to_i)
+    UI.user_error!("Das Archiv unterstützt nicht iPhone und iPad") unless device_families.include?(1) && device_families.include?(2)
+    UI.user_error!("Das iPad-Archiv erzwingt den Vollbildmodus") unless sh("/usr/libexec/PlistBuddy", "-c", "Print :UIRequiresFullScreen", info).strip.downcase == "false"
+    extension_path = File.join(app_path, "PlugIns", "CDanceShare.appex")
+    UI.user_error!("Teilen-Erweiterung fehlt") unless File.directory?(extension_path)
+    extension_info = File.join(extension_path, "Info.plist")
+    UI.user_error!("Falsche Teilen-Bundle-ID") unless sh("/usr/libexec/PlistBuddy", "-c", "Print :CFBundleIdentifier", extension_info).strip == "info.schreiber.cdance.share"
+    UI.user_error!("Falsche Buildnummer der Teilen-Erweiterung") unless sh("/usr/libexec/PlistBuddy", "-c", "Print :CFBundleVersion", extension_info).strip == selected_build
+    notification_path = File.join(app_path, "PlugIns", "CDanceNotificationService.appex")
+    UI.user_error!("Notification-Service-Erweiterung fehlt") unless File.directory?(notification_path)
+    notification_info = File.join(notification_path, "Info.plist")
+    UI.user_error!("Falsche Notification-Service-Bundle-ID") unless sh("/usr/libexec/PlistBuddy", "-c", "Print :CFBundleIdentifier", notification_info).strip == "info.schreiber.cdance.notification-service"
+    UI.user_error!("Falsche Buildnummer der Notification-Service-Erweiterung") unless sh("/usr/libexec/PlistBuddy", "-c", "Print :CFBundleVersion", notification_info).strip == selected_build
+    entitlements = sh("/usr/bin/codesign", "-d", "--entitlements", ":-", app_path)
+    UI.user_error!("Entwicklungs-Entitlement enthalten") if entitlements.match?(%r{<key>get-task-allow</key>\s*<true\s*/>})
+    UI.user_error!("App Group fehlt in der Haupt-App") unless entitlements.include?("group.info.schreiber.cdance")
+    UI.user_error!("Produktives Push-Entitlement fehlt") unless entitlements.match?(%r{<key>aps-environment</key>\s*<string>production</string>})
+    extension_entitlements = sh("/usr/bin/codesign", "-d", "--entitlements", ":-", extension_path)
+    UI.user_error!("App Group fehlt in der Teilen-Erweiterung") unless extension_entitlements.include?("group.info.schreiber.cdance")
+    UI.user_error!("Entwicklungs-Entitlement in Teilen-Erweiterung enthalten") if extension_entitlements.match?(%r{<key>get-task-allow</key>\s*<true\s*/>})
+    notification_entitlements = sh("/usr/bin/codesign", "-d", "--entitlements", ":-", notification_path)
+    UI.user_error!("Entwicklungs-Entitlement in Notification-Service-Erweiterung enthalten") if notification_entitlements.match?(%r{<key>get-task-allow</key>\s*<true\s*/>})
+    watch_path = Dir[File.join(app_path, "Watch", "*.app")].first
+    UI.user_error!("Apple-Watch-App fehlt") unless watch_path && File.directory?(watch_path)
+    watch_info = File.join(watch_path, "Info.plist")
+    UI.user_error!("Falsche Watch-Bundle-ID") unless sh("/usr/libexec/PlistBuddy", "-c", "Print :CFBundleIdentifier", watch_info).strip == "info.schreiber.cdance.watchkitapp"
+    UI.user_error!("Falsche Buildnummer der Watch-App") unless sh("/usr/libexec/PlistBuddy", "-c", "Print :CFBundleVersion", watch_info).strip == selected_build
+    watch_entitlements = sh("/usr/bin/codesign", "-d", "--entitlements", ":-", watch_path)
+    UI.user_error!("Entwicklungs-Entitlement in Watch-App enthalten") if watch_entitlements.match?(%r{<key>get-task-allow</key>\s*<true\s*/>})
+    sh("/usr/bin/codesign", "--verify", "--deep", "--strict", app_path)
+    UI.user_error!("Privater Schlüssel im Paket") unless sh("grep", "-RIl", "BEGIN PRIVATE KEY", app_path, error_callback: ->(_result) {}, log: false).strip.empty?
+    icons = Dir[File.join(app_path, "AppIcon*.png")]
+    UI.user_error!("Paketiertes App-Icon fehlt") if icons.empty?
+    icons.each { |icon| UI.user_error!("App-Icon enthält Alpha") unless sh("sips", "-g", "hasAlpha", icon, log: false).downcase.include?("hasalpha: no") }
+    { ipa: ipa, version: selected_version, build: selected_build }
+  end
+
+  lane :simulator do
+    device = simulator
+    sh("xcrun", "simctl", "boot", device.fetch("udid"), error_callback: ->(_result) {})
+    sh("xcrun", "simctl", "bootstatus", device.fetch("udid"), "-b")
+    sh("xcodebuild", "-project", project, "-scheme", APP_NAME, "-destination", "platform=iOS Simulator,id=#{device.fetch('udid')}", "-derivedDataPath", File.join(root, "build", "Simulator"), "CODE_SIGNING_ALLOWED=NO", "clean", "build")
+  end
+
+  lane :test do
+    device = simulator
+    sh("xcrun", "simctl", "boot", device.fetch("udid"), error_callback: ->(_result) {})
+    sh("xcrun", "simctl", "bootstatus", device.fetch("udid"), "-b")
+    sh("xcodebuild", "-project", project, "-scheme", APP_NAME, "-sdk", "iphonesimulator", "-configuration", "Debug", "-destination", "platform=iOS Simulator,id=#{device.fetch('udid')}", "-derivedDataPath", File.join(root, "build", "FastlaneTests"), "-parallel-testing-enabled", "NO", "CODE_SIGNING_ALLOWED=NO", "test")
+  end
+
+  lane :testflight_preflight do
+    api_key
+    app_record = app(create: true)
+    internal_group(app_record)
+    assign_tester(app_record)
+  end
+
+  lane :release_archive do
+    api_key
+    result = archive
+    UI.success("C-Dance #{result[:version]} (#{result[:build]}) geprüft")
+  end
+
+  lane :testflight_status do
+    api_key
+    app_record = app
+    build = live_build(app_record, version, build_number)
+    UI.user_error!("Build fehlt") unless build
+    UI.user_error!("Build ist nicht VALID") unless build.processing_state == Spaceship::ConnectAPI::Build::ProcessingState::VALID
+    UI.user_error!("Export-Compliance ist offen") unless build.uses_non_exempt_encryption == false
+    beta_detail = build.build_beta_detail
+    UI.user_error!("TestFlight-Detailstatus fehlt") unless beta_detail
+    state = beta_detail.internal_build_state
+    UI.user_error!("Build ist intern nicht testbar: #{state}") unless %w[READY_FOR_BETA_TESTING IN_BETA_TESTING].include?(state)
+    UI.user_error!("Export-Compliance ist intern noch offen") if state == "MISSING_EXPORT_COMPLIANCE"
+    UI.user_error!("Export-Compliance ist extern noch offen") if beta_detail.external_build_state == "MISSING_EXPORT_COMPLIANCE"
+    group = internal_group(app_record)
+    testers = Spaceship::ConnectAPI.get_beta_testers(filter: { betaGroups: group.id }).all_pages.flat_map(&:to_models)
+    UI.user_error!("Vorgesehener Tester fehlt") unless testers.any? { |tester| tester.email.to_s.casecmp?(tester_email) }
+    UI.success("C-Dance #{version} (#{build_number}) ist intern installierbar")
+  end
+
+  lane :beta do
+    test unless ENV["CDANCE_SKIP_TESTS"] == "1"
+    testflight_preflight
+    key = api_key
+    app_record = app
+    result = archive
+    upload_to_testflight(api_key: key, app_identifier: BUNDLE_ID, ipa: result[:ipa], changelog: "Erste C-Dance-Version mit Seedance-Filmgenerierung, Referenzmedien, Verlauf, Favoriten, iPad- und Watch-App.", distribute_external: false, notify_external_testers: false, skip_waiting_for_build_processing: true)
+    processed = nil
+    60.times do
+      sleep(10)
+      candidate = live_build(app_record, result[:version], result[:build])
+      next unless candidate&.processing_state == Spaceship::ConnectAPI::Build::ProcessingState::VALID && candidate.uses_non_exempt_encryption == false
+      next unless %w[READY_FOR_BETA_TESTING IN_BETA_TESTING].include?(candidate.build_beta_detail&.internal_build_state)
+      processed = candidate; break
+    end
+    UI.user_error!("Apple-Verarbeitung wurde nicht rechtzeitig abgeschlossen") unless processed
+    assign_tester(app_record)
+    testflight_status
+  end
+
+  lane :retry_testflight_upload do
+    key = api_key
+    app_record = app
+    ipa = File.join(root, "build", "C-Dance-#{build_number}-export", "CDance.ipa")
+    UI.user_error!("Geprüfte IPA fehlt") unless File.file?(ipa)
+    upload_to_testflight(api_key: key, app_identifier: BUNDLE_ID, ipa: ipa, changelog: "Erste C-Dance-Version mit Seedance-Filmgenerierung, Referenzmedien, Verlauf, Favoriten, iPad- und Watch-App.", distribute_external: false, notify_external_testers: false, skip_waiting_for_build_processing: true)
+    processed = nil
+    60.times do
+      sleep(10)
+      candidate = live_build(app_record, version, build_number)
+      next unless candidate&.processing_state == Spaceship::ConnectAPI::Build::ProcessingState::VALID && candidate.uses_non_exempt_encryption == false
+      next unless %w[READY_FOR_BETA_TESTING IN_BETA_TESTING].include?(candidate.build_beta_detail&.internal_build_state)
+      processed = candidate; break
+    end
+    UI.user_error!("Apple-Verarbeitung wurde nicht rechtzeitig abgeschlossen") unless processed
+    assign_tester(app_record)
+    testflight_status
+  end
+
+  desc "App-Store-Metadaten, eindeutige Screenshots, Build und Preisstufe 1 vorbereiten"
+  lane :appstore_prepare do
+    key = api_key
+    secure = secure_configuration
+    screenshot_paths = Dir[File.join(root, "fastlane", "screenshots", "de-DE", "*.png")].sort
+    UI.user_error!("Genau fünf Store-Screenshots werden erwartet") unless screenshot_paths.length == 5
+    digests = screenshot_paths.map { |path| Digest::SHA256.file(path).hexdigest }
+    UI.user_error!("Doppelte Store-Screenshots gefunden") unless digests.uniq.length == digests.length
+    dimension_counts = Hash.new(0)
+    screenshot_paths.each do |path|
+      dimensions = sh("sips", "-g", "pixelWidth", "-g", "pixelHeight", path, log: false)
+      size = dimensions.scan(/(?:pixelWidth|pixelHeight): (\d+)/).flatten.join("x")
+      dimension_counts[size] += 1
+    end
+    UI.user_error!("Es werden drei iPhone-Screenshots in 1320 x 2868 erwartet") unless dimension_counts["1320x2868"] == 3
+    UI.user_error!("Es wird ein iPad-Screenshot in 2064 x 2752 erwartet") unless dimension_counts["2064x2752"] == 1
+    UI.user_error!("Es wird ein Watch-Screenshot in 368 x 448 erwartet") unless dimension_counts["368x448"] == 1
+    sh("bundle", "exec", "ruby", File.join(root, "build", "set_app_price.rb"))
+
+    upload_to_app_store(
+      api_key: key,
+      app_identifier: BUNDLE_ID,
+      app_version: version,
+      build_number: build_number,
+      skip_binary_upload: true,
+      metadata_path: File.join(root, "fastlane", "metadata"),
+      screenshots_path: File.join(root, "fastlane", "screenshots"),
+      overwrite_screenshots: true,
+      force: true,
+      submit_for_review: false,
+      automatic_release: true,
+      run_precheck_before_submit: false,
+      primary_category: "Apps.GraphicsDesign",
+      app_rating_config_path: File.join(root, "fastlane", "metadata", "age_rating.json"),
+      app_review_information: {
+        first_name: secure["APP_REVIEW_CONTACT_FIRST_NAME"],
+        last_name: secure["APP_REVIEW_CONTACT_LAST_NAME"],
+        phone_number: secure["APP_REVIEW_CONTACT_PHONE"],
+        email_address: secure["APP_REVIEW_CONTACT_EMAIL"],
+        demo_user: secure["APP_REVIEW_DEMO_USER"],
+        demo_password: secure["APP_REVIEW_DEMO_PASSWORD"],
+        notes: "To review film generation, choose Server Mode during onboarding, enter https://cdance.schreiber.info and sign in with the review account. This isolated account has an empty history and a configured video provider. Standalone mode can also be explored without signing in by choosing the preview option. The Apple Watch companion displays completed films synced from the iPhone app."
+      },
+      submission_information: {
+        export_compliance_uses_encryption: false,
+        content_rights_contains_third_party_content: false
+      }
+    )
+  end
+
+  desc "Den aktuell vorbereiteten Build bei Apple zur Prüfung einreichen"
+  lane :appstore_submit do
+    key = api_key
+    upload_to_app_store(
+      api_key: key,
+      app_identifier: BUNDLE_ID,
+      app_version: version,
+      build_number: build_number,
+      skip_binary_upload: true,
+      skip_metadata: true,
+      skip_screenshots: true,
+      force: true,
+      submit_for_review: true,
+      automatic_release: true,
+      run_precheck_before_submit: false,
+      submission_information: {
+        export_compliance_uses_encryption: false,
+        content_rights_contains_third_party_content: false
+      }
+    )
+  end
+
+  desc "App-Datenschutz mit der sicher im macOS-Schlüsselbund hinterlegten Apple-Anmeldung veröffentlichen"
+  lane :appstore_privacy do
+    secure = secure_configuration
+    username = ENV["FASTLANE_USER"] || secure["APP_STORE_CONNECT_APPLE_ID"]
+    UI.user_error!("Apple-ID fehlt") if username.to_s.empty?
+    password_service = "deliver.#{username}"
+    password = sh(
+      "security", "find-internet-password", "-a", username, "-s", password_service, "-w",
+      log: false
+    ).strip
+    UI.user_error!("Apple-Passwort fehlt im macOS-Schlüsselbund") if password.empty?
+    previous_password = ENV["FASTLANE_PASSWORD"]
+    ENV["FASTLANE_PASSWORD"] = password
+    begin
+      upload_app_privacy_details_to_app_store(
+        username: username,
+        app_identifier: BUNDLE_ID,
+        team_id: TEAM_ID,
+        json_path: File.join(root, "fastlane", "app_privacy_details.json"),
+        skip_publish: false
+      )
+    ensure
+      ENV["FASTLANE_PASSWORD"] = previous_password
+      password.replace("\0" * password.bytesize)
+    end
+  end
+
+  desc "Eine laufende App-Store-Prüfung abbrechen, damit der aktuelle Build eingereicht werden kann"
+  lane :appstore_cancel_review do
+    api_key
+    app_record = app
+    submission = app_record.get_in_progress_review_submission(
+      platform: Spaceship::ConnectAPI::Platform::IOS
+    )
+    next UI.message("Keine laufende App-Store-Prüfung vorhanden") unless submission
+
+    submission.cancel_submission
+    UI.message("Abbruch der bisherigen App-Store-Prüfung wurde angefordert")
+    40.times do
+      sleep(15)
+      current = app_record.get_in_progress_review_submission(
+        platform: Spaceship::ConnectAPI::Platform::IOS
+      )
+      break unless current
+    end
+    UI.user_error!("Die bisherige App-Store-Prüfung wurde nicht rechtzeitig beendet") if app_record.get_in_progress_review_submission(
+      platform: Spaceship::ConnectAPI::Platform::IOS
+    )
+    UI.success("Die bisherige App-Store-Prüfung ist beendet")
+  end
+
+  desc "App Store vollständig vorbereiten, Datenschutz veröffentlichen und zur Prüfung einreichen"
+  lane :appstore_release do
+    appstore_cancel_review
+    appstore_prepare
+    appstore_privacy
+    appstore_submit
+  end
+end

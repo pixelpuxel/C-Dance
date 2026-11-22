@@ -1,0 +1,14 @@
+C-Dance erstellt und bearbeitet Filme mit Dreamina Seedance. Kombiniere Referenzbilder, Videos, wiederverwendbare Prompt-Bausteine und eigene Anweisungen zu einem präzisen Filmauftrag.
+
+Funktionen:
+• Filme aus Text und Referenzmedien erstellen
+• Seedance-Modell, Seitenverhältnis, Auflösung, Dauer und Ton festlegen
+• Mehrere Aufträge als Batch in die Warteschlange stellen
+• Prompts, Setups und Referenzen wiederverwenden
+• Verlauf, Favoriten und Bewertungen verwalten
+• Ergebnisfilme teilen oder in Fotos sichern
+• Selbst betriebenes C-Dance-Backend verbinden
+
+Im Standalone-Modus verbindest du C-Dance mit deinem eigenen BytePlus-Ark-API-Schlüssel. Der Schlüssel bleibt im geschützten iOS-Schlüsselbund. Alternativ kannst du ein selbst betriebenes C-Dance-Backend verwenden; dessen Quellcode ist separat verfügbar.
+
+Für Filmgenerierungen sind eine Internetverbindung und ein eigener Zugang beim Modellanbieter erforderlich. Beim Anbieter können nutzungsabhängige Kosten entstehen. C-Dance ist eine unabhängige Client-App und nicht mit ByteDance oder BytePlus verbunden.

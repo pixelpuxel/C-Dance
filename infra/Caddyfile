@@ -1,0 +1,26 @@
+:80 {
+    encode zstd gzip
+
+    request_body {
+        max_size 320MB
+    }
+
+    @mcp path /mcp /mcp/* /.well-known/oauth-authorization-server /.well-known/oauth-protected-resource /.well-known/oauth-protected-resource/* /authorize /token /register /revoke /oauth/consent
+    handle @mcp {
+        reverse_proxy mcp:8001
+    }
+
+    handle /api/* {
+        reverse_proxy backend:8000
+    }
+
+    handle {
+        reverse_proxy web:8080
+    }
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        -Server
+    }
+
+}

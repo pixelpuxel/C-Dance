@@ -1,0 +1,29 @@
+.public-page {
+  min-height: 100vh;
+  padding: clamp(24px, 6vw, 72px) 18px;
+  background: radial-gradient(circle at 50% 0, #2c3421, transparent 34%);
+}
+
+.public-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: min(760px, 100%);
+  margin: 0 auto 20px;
+  color: #eee;
+  text-decoration: none;
+}
+
+.public-card {
+  width: min(760px, 100%);
+  margin: auto;
+  padding: clamp(24px, 5vw, 52px);
+  line-height: 1.65;
+}
+
+.public-card h1 { margin: 0.15rem 0 1rem; }
+.public-card h2 { margin: 2rem 0 0.35rem; font-size: 1.15rem; }
+.public-card p, .public-card li { color: #c8cad0; }
+.public-card a { color: var(--accent); }
+.public-kicker { color: var(--accent) !important; font-weight: 700; margin: 0; }
+.public-links { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 2.5rem; padding-top: 1.25rem; border-top: 1px solid var(--line); }

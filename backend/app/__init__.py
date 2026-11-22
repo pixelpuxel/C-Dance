@@ -1,2 +1,2 @@
-"""Seedream Studio backend."""
+"""C-Dance backend."""
 

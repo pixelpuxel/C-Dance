@@ -1,13 +1,13 @@
 import os
 
 os.environ.update({
-    "DATABASE_URL": "sqlite+pysqlite:////tmp/seedream-test.db",
+    "DATABASE_URL": "sqlite+pysqlite:////tmp/cdance-test.db",
     "REDIS_URL": "redis://localhost:6399/15",
     "JWT_SECRET": "test-jwt-secret-that-is-definitely-long-enough",
     "API_KEY_PEPPER": "test-api-key-pepper-that-is-long-enough",
     "SETUP_TOKEN": "test-setup-token-that-is-definitely-long-enough",
     "PUBLIC_BASE_URL": "http://testserver",
-    "STORAGE_ROOT": "/tmp/seedream-tests-storage",
+    "STORAGE_ROOT": "/tmp/cdance-tests-storage",
 })
 
 import pytest

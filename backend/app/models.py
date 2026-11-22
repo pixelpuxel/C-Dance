@@ -88,7 +88,7 @@ class DeviceRegistration(Base):
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     device_token: Mapped[str] = mapped_column(String(200), unique=True, index=True)
     environment: Mapped[str] = mapped_column(String(20), default="production")
-    bundle_id: Mapped[str] = mapped_column(String(255), default="com.example.seedream")
+    bundle_id: Mapped[str] = mapped_column(String(255), default="info.schreiber.cdance")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)

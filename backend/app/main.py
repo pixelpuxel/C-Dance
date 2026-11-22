@@ -13,10 +13,10 @@ from app.core.config import get_settings
 
 settings = get_settings()
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
-logger = logging.getLogger("seedream.api")
+logger = logging.getLogger("cdance.api")
 
 app = FastAPI(
-    title="Seedream Studio API",
+    title="C-Dance API",
     version="1.0.0",
     description="Öffentliche REST-API für Bildgenerierung, Bearbeitung, Prompt-Bibliothek und Verlauf.",
     docs_url="/api/docs",

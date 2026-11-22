@@ -43,13 +43,13 @@ def send_generation_completed(db: Session, generation_id: str) -> None:
     body = prompt[:137] + "…" if len(prompt) > 138 else prompt
     payload = {
         "aps": {
-            "alert": {"title": "Dein Bild ist fertig", "body": body or "Tippe, um das Ergebnis zu öffnen."},
+            "alert": {"title": "Dein Film ist fertig", "body": body or "Tippe, um den Film zu öffnen."},
             "sound": "default",
             "mutable-content": 1,
         },
         "generation_id": generation.id,
         "media_url": media_url,
-        "deep_link": f"seedream://generation/{generation.id}",
+        "deep_link": f"cdance://generation/{generation.id}",
     }
     with httpx.Client(http2=True, timeout=15) as client:
         for device in devices:

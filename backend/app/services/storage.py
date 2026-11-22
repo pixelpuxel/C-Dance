@@ -33,7 +33,7 @@ class LocalStorage(Storage):
 
     def put(self, data: bytes, suffix: str) -> tuple[str, int]:
         suffix = suffix.lower().lstrip(".")
-        if suffix not in {"jpg", "jpeg", "png", "webp", "gif", "bmp", "tiff", "heic", "heif"}:
+        if suffix not in {"jpg", "jpeg", "png", "webp", "gif", "bmp", "tiff", "heic", "heif", "mp4", "mov", "mp3", "wav"}:
             suffix = "bin"
         key = f"{uuid.uuid4().hex[:2]}/{uuid.uuid4().hex}.{suffix}"
         destination = self._safe(key)

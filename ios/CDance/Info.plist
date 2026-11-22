@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleIdentifier</key><string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+<key>CFBundleExecutable</key><string>$(EXECUTABLE_NAME)</string>
+<key>CFBundleName</key><string>$(PRODUCT_NAME)</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+<key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
+<key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
+<key>CFBundleDisplayName</key><string>C-Dance</string>
+<key>CFBundleURLTypes</key><array><dict><key>CFBundleURLName</key><string>info.schreiber.cdance</string><key>CFBundleURLSchemes</key><array><string>cdance</string></array></dict></array>
+<key>CFBundleDocumentTypes</key><array><dict>
+<key>CFBundleTypeName</key><string>Bild für C-Dance</string>
+<key>CFBundleTypeRole</key><string>Editor</string>
+<key>LSHandlerRank</key><string>Alternate</string>
+<key>LSItemContentTypes</key><array><string>public.image</string></array>
+</dict></array>
+<key>LSSupportsOpeningDocumentsInPlace</key><false/>
+<key>ITSAppUsesNonExemptEncryption</key><false/>
+<key>NSCameraUsageDescription</key><string>CDance benötigt die Kamera, um Referenzbilder aufzunehmen.</string>
+<key>NSPhotoLibraryUsageDescription</key><string>CDance benötigt Zugriff, um Referenzbilder auszuwählen.</string>
+<key>NSPhotoLibraryAddUsageDescription</key><string>C-Dance speichert erzeugte Filme auf Wunsch in deiner Fotomediathek.</string>
+<key>UILaunchScreen</key><dict/>
+<key>UISupportedInterfaceOrientations</key><array><string>UIInterfaceOrientationPortrait</string><string>UIInterfaceOrientationLandscapeLeft</string><string>UIInterfaceOrientationLandscapeRight</string></array>
+<key>UIRequiresFullScreen</key><false/>
+<key>UISupportedInterfaceOrientations~ipad</key><array><string>UIInterfaceOrientationPortrait</string><string>UIInterfaceOrientationPortraitUpsideDown</string><string>UIInterfaceOrientationLandscapeLeft</string><string>UIInterfaceOrientationLandscapeRight</string></array>
+</dict></plist>

@@ -1,5 +1,5 @@
 import base64
-import re
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -23,108 +23,124 @@ class ProviderResult:
     payload: dict[str, Any]
 
 
-ASPECT_INSTRUCTIONS = {
-    "1:1": "Erzeuge das Ergebnis quadratisch im Seitenverhältnis 1:1.",
-    "4:3": "Erzeuge das Ergebnis im Querformat mit Seitenverhältnis 4:3.",
-    "3:4": "Erzeuge das Ergebnis im Hochformat mit Seitenverhältnis 3:4.",
-    "16:9": "Erzeuge das Ergebnis im breiten Querformat mit Seitenverhältnis 16:9.",
-    "9:16": "Erzeuge das Ergebnis im Hochformat mit Seitenverhältnis 9:16.",
-    "3:2": "Erzeuge das Ergebnis im Querformat mit Seitenverhältnis 3:2.",
-    "2:3": "Erzeuge das Ergebnis im Hochformat mit Seitenverhältnis 2:3.",
-    "21:9": "Erzeuge das Ergebnis im ultrabreiten Seitenverhältnis 21:9.",
-}
+class ArkSeedanceProvider:
+    """Client for ModelArk's asynchronous video-generation API."""
 
-
-class ArkSeedreamProvider:
     def __init__(self, settings: Settings, api_key: str | None = None):
         self.settings = settings
         self.api_key = (api_key if api_key is not None else settings.ark_api_key).strip()
 
-    def build_payload(
-        self,
-        *,
-        model: str,
-        prompt: str,
-        resolution: str,
-        aspect_ratio: str,
-        references: list[tuple[bytes, str]],
-        parameters: dict[str, Any],
-    ) -> dict[str, Any]:
-        final_prompt = prompt.strip()
-        if aspect_ratio in ASPECT_INSTRUCTIONS:
-            final_prompt = f"{final_prompt}\n\n{ASPECT_INSTRUCTIONS[aspect_ratio]}"
-        elif aspect_ratio == "auto" and references:
-            final_prompt = f"{final_prompt}\n\nWähle anhand der Referenzbilder und des Motivs ein passendes Seitenverhältnis."
+    def build_payload(self, *, model: str, prompt: str, resolution: str, aspect_ratio: str, references: list[tuple[bytes, str, str | None]], parameters: dict[str, Any]) -> dict[str, Any]:
+        content: list[dict[str, Any]] = [{"type": "text", "text": prompt.strip()}]
+        roles = parameters.get("reference_roles")
+        if not isinstance(roles, list):
+            roles = []
+        for index, (data, mime, public_url) in enumerate(references):
+            encoded = public_url or f"data:{mime.lower()};base64,{base64.b64encode(data).decode()}"
+            if mime.startswith("video/"):
+                if not public_url:
+                    raise ProviderError("video_url_required", "Referenzfilme müssen über den C-Dance-Server erreichbar sein.", 422)
+                content.append({"type": "video_url", "role": "reference_video", "video_url": {"url": encoded}})
+            elif mime.startswith("audio/"):
+                if not public_url:
+                    raise ProviderError("audio_url_required", "Referenzaudio muss über den C-Dance-Server erreichbar sein.", 422)
+                content.append({"type": "audio_url", "role": "reference_audio", "audio_url": {"url": encoded}})
+            else:
+                role = roles[index] if index < len(roles) else "reference_image"
+                if role not in {"first_frame", "last_frame", "reference_image"}:
+                    role = "reference_image"
+                content.append({"type": "image_url", "role": role, "image_url": {"url": encoded}})
         payload: dict[str, Any] = {
             "model": model,
-            "prompt": final_prompt,
-            "size": resolution,
-            "response_format": "url",
-            "watermark": bool(parameters.get("watermark", self.settings.seedream_watermark)),
-            "output_format": parameters.get("output_format", "png"),
+            "content": content,
+            "generate_audio": bool(parameters.get("generate_audio", self.settings.seedance_generate_audio)),
+            "ratio": "adaptive" if aspect_ratio == "auto" else aspect_ratio,
+            "resolution": resolution,
+            "duration": int(parameters.get("duration", self.settings.seedance_default_duration)),
+            "watermark": bool(parameters.get("watermark", self.settings.seedance_watermark)),
+            "output_format": parameters.get("output_format", "mp4"),
         }
-        if references:
-            images = [f"data:{mime};base64,{base64.b64encode(data).decode()}" for data, mime in references]
-            payload["image"] = images[0] if len(images) == 1 else images
-        allowed = {"background", "optimize_prompt_options", "layer_decomposition"}
-        for key in allowed:
+        for key in ("seed", "camera_fixed", "service_tier"):
             if key in parameters:
                 payload[key] = parameters[key]
         return payload
 
-    def generate(self, payload: dict[str, Any]) -> ProviderResult:
+    def create_task(self, payload: dict[str, Any]) -> ProviderResult:
+        body, status = self._request("POST", self.settings.seedance_endpoint, json=payload)
+        task_id = body.get("id")
+        if not isinstance(task_id, str) or not task_id:
+            raise ProviderError("missing_task_id", "C-Dance hat keine gültige Auftragsnummer erhalten.", 502, body)
+        return ProviderResult(status, body)
+
+    def retrieve_task(self, task_id: str) -> ProviderResult:
+        body, status = self._request("GET", f"{self.settings.seedance_endpoint.rstrip('/')}/{task_id}")
+        return ProviderResult(status, body)
+
+    def wait_for_task(self, task_id: str) -> ProviderResult:
+        deadline = time.monotonic() + self.settings.provider_timeout_seconds
+        while time.monotonic() < deadline:
+            result = self.retrieve_task(task_id)
+            status = str(result.payload.get("status", "")).lower()
+            if status == "succeeded":
+                content = result.payload.get("content")
+                if not isinstance(content, dict) or not isinstance(content.get("video_url"), str):
+                    raise ProviderError("missing_video_url", "C-Dance hat keine Videodatei erhalten.", 502, result.payload)
+                return result
+            if status in {"failed", "cancelled", "expired"}:
+                error = result.payload.get("error") if isinstance(result.payload.get("error"), dict) else {}
+                code = str(error.get("code", "provider_failed"))
+                message = str(error.get("message", ""))
+                raise ProviderError(code, self._translate_error(result.status_code, code, message), result.status_code, result.payload)
+            time.sleep(self.settings.provider_poll_interval_seconds)
+        raise ProviderError("provider_timeout", "Die Filmgenerierung dauert ungewöhnlich lange. Der Auftrag wurde beendet; bitte erneut versuchen.", 504)
+
+    def _request(self, method: str, url: str, **kwargs) -> tuple[dict[str, Any], int]:
         if not self.api_key:
-            raise ProviderError("provider_not_configured", "Seedream ist noch nicht konfiguriert. Bitte den API-Key unter Einstellungen hinterlegen.", 503)
+            raise ProviderError("provider_not_configured", "C-Dance ist noch nicht konfiguriert. Bitte den API-Key unter Einstellungen hinterlegen.", 503)
+        timeout = httpx.Timeout(connect=20, read=90, write=120, pool=20)
         try:
-            with httpx.Client(timeout=self.settings.provider_timeout_seconds) as client:
-                response = client.post(
-                    self.settings.seedream_endpoint,
-                    headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"},
-                    json=payload,
-                )
+            with httpx.Client(timeout=timeout) as client:
+                response = client.request(method, url, headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}, **kwargs)
         except httpx.TimeoutException as exc:
-            raise ProviderError("provider_timeout", "Seedream hat nicht rechtzeitig geantwortet. Bitte erneut versuchen.", 504) from exc
+            raise ProviderError("provider_timeout", "Der Videoanbieter hat nicht rechtzeitig geantwortet.", 504) from exc
         except httpx.HTTPError as exc:
-            raise ProviderError("provider_unreachable", "Seedream ist momentan nicht erreichbar.", 502) from exc
+            raise ProviderError("provider_unreachable", "Der Videoanbieter ist momentan nicht erreichbar.", 502) from exc
         try:
             body = response.json()
         except ValueError:
             body = {"raw": response.text[:4000]}
         if response.is_error:
-            provider_code = str(body.get("error", {}).get("code", "provider_error"))
-            provider_message = str(body.get("error", {}).get("message", ""))
-            user_message = self._translate_error(response.status_code, provider_code, provider_message)
-            raise ProviderError(provider_code, user_message, response.status_code, body)
-        if not isinstance(body.get("data"), list) or not body["data"]:
-            raise ProviderError("empty_provider_response", "Seedream hat kein Bild geliefert.", 502, body)
-        return ProviderResult(response.status_code, body)
+            error = body.get("error") if isinstance(body.get("error"), dict) else {}
+            code = str(error.get("code", "provider_error"))
+            message = str(error.get("message", ""))
+            raise ProviderError(code, self._translate_error(response.status_code, code, message), response.status_code, body)
+        return body, response.status_code
 
     @staticmethod
     def _translate_error(status: int, code: str, message: str) -> str:
         lowered = f"{code} {message}".lower()
         if status in (401, 403):
-            return "Die Seedream-Anmeldung ist ungültig oder nicht berechtigt."
+            return "Die Anmeldung beim Videoanbieter ist ungültig oder nicht für Seedance freigeschaltet."
         if status == 429:
-            return "Das Seedream-Limit ist gerade erreicht. Bitte kurz warten und erneut versuchen."
-        if "sensitive" in lowered or "content" in lowered and "policy" in lowered:
-            return "Die Anfrage wurde durch die Inhaltsrichtlinien des Bildanbieters abgelehnt."
+            return "Das Film-Limit ist gerade erreicht. Bitte kurz warten und erneut versuchen."
+        if "sensitive" in lowered or "policy" in lowered:
+            return "Die Anfrage wurde durch die Inhaltsrichtlinien des Videoanbieters abgelehnt."
+        if "balance" in lowered or "quota" in lowered:
+            return "Für die Filmgenerierung ist nicht genügend Guthaben oder Kontingent verfügbar."
         if status == 400:
-            return "Seedream konnte diese Bild- oder Parameterkombination nicht verarbeiten."
-        return "Die Bildgenerierung ist beim Anbieter fehlgeschlagen."
+            return "Der Videoanbieter konnte diese Kombination aus Prompt, Referenzen und Einstellungen nicht verarbeiten."
+        return "Die Filmgenerierung ist beim Anbieter fehlgeschlagen."
 
 
 def safe_provider_payload(payload: dict[str, Any]) -> dict[str, Any]:
     result = dict(payload)
-    image = result.get("image")
-    if isinstance(image, list):
-        result["image"] = [f"[embedded image {index + 1}]" for index in range(len(image))]
-    elif isinstance(image, str):
-        result["image"] = "[embedded image]"
+    safe_content: list[dict[str, Any]] = []
+    for item in result.get("content", []):
+        safe_item = dict(item)
+        for key in ("image_url", "video_url", "audio_url"):
+            value = safe_item.get(key)
+            if isinstance(value, dict) and isinstance(value.get("url"), str) and value["url"].startswith("data:"):
+                safe_item[key] = {"url": "[embedded media]"}
+        safe_content.append(safe_item)
+    result["content"] = safe_content
     return result
-
-
-def parse_size(value: str | None) -> tuple[int | None, int | None]:
-    if not value:
-        return None, None
-    match = re.fullmatch(r"(\d+)x(\d+)", value)
-    return (int(match.group(1)), int(match.group(2))) if match else (None, None)

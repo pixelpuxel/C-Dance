@@ -20,21 +20,24 @@ from app.services.storage import get_storage
 
 
 LEGACY_MODEL_ROLES = {
-    "doubao-seedream-5-0-pro-260628": "pro",
-    "doubao-seedream-5-0-flash-260915": "flash",
-    "doubao-seedream-5-0-260128": "lite",
+    "dreamina-seedance-2-5-260628": "2.5",
+    "dreamina-seedance-2-5-flash-261115": "2.5-flash",
+    "dreamina-seedance-2-0-260128": "2.0",
+    "dreamina-seedance-2-0-fast-260128": "2.0-fast",
 }
 
 
 def normalize_model(model: str | None, settings) -> str:
-    chosen = model or settings.seedream_model
+    chosen = model or settings.seedance_model
     role = LEGACY_MODEL_ROLES.get(chosen)
-    if role == "pro":
-        return settings.seedream_model
-    if role == "flash":
-        return settings.seedream_flash_model
-    if role == "lite":
-        return settings.seedream_lite_model
+    if role == "2.5":
+        return settings.seedance_model
+    if role == "2.5-flash":
+        return settings.seedance_flash_model
+    if role == "2.0":
+        return settings.seedance_20_model
+    if role == "2.0-fast":
+        return settings.seedance_fast_model
     return chosen
 
 
@@ -79,11 +82,16 @@ async def create_generation(
     parameters: dict,
 ) -> Generation:
     settings = get_settings()
-    allowed_models = {settings.seedream_model, settings.seedream_flash_model, settings.seedream_lite_model}
+    allowed_models = {
+        settings.seedance_model,
+        settings.seedance_flash_model,
+        settings.seedance_20_model,
+        settings.seedance_fast_model,
+    }
     chosen_model = normalize_model(model, settings)
     if chosen_model not in allowed_models:
         raise HTTPException(422, detail={"code": "unsupported_model", "message": "Das ausgewählte Modell ist nicht konfiguriert."})
-    chosen_resolution = resolution or settings.seedream_default_size
+    chosen_resolution = resolution or settings.seedance_default_resolution
     if chosen_resolution not in settings.configured_sizes and not _valid_pixel_size(chosen_resolution):
         raise HTTPException(422, detail={"code": "unsupported_resolution", "message": "Die ausgewählte Auflösung ist nicht konfiguriert."})
     if aspect_ratio not in {"auto", "1:1", "4:3", "3:4", "16:9", "9:16", "3:2", "2:3", "21:9"}:
@@ -138,27 +146,42 @@ async def create_generation(
     for upload in uploads:
         data = await upload.read(settings.max_upload_bytes + 1)
         if len(data) > settings.max_upload_bytes:
-            raise HTTPException(413, detail={"code": "file_too_large", "message": "Ein Bild überschreitet die Upload-Grenze."})
-        try:
-            info = inspect_image(data, upload.content_type)
-        except ValueError as exc:
-            raise HTTPException(415, detail={"code": "invalid_image", "message": str(exc)}) from exc
-        key, size = get_storage().put(data, info.extension)
+            raise HTTPException(413, detail={"code": "file_too_large", "message": "Eine Referenz überschreitet die Upload-Grenze."})
+        content_type = (upload.content_type or "").lower()
+        is_video = content_type in {"video/mp4", "video/quicktime"}
+        is_audio = content_type in {"audio/mpeg", "audio/mp3", "audio/wav", "audio/x-wav"}
+        if is_video:
+            extension = "mov" if upload.content_type == "video/quicktime" else "mp4"
+            mime_type = upload.content_type or "video/mp4"
+            width = height = None
+        elif is_audio:
+            extension = "wav" if "wav" in content_type else "mp3"
+            mime_type = "audio/wav" if extension == "wav" else "audio/mpeg"
+            width = height = None
+        else:
+            if len(data) > 30 * 1024 * 1024:
+                raise HTTPException(413, detail={"code": "image_too_large", "message": "Ein Referenzbild darf höchstens 30 MB groß sein."})
+            try:
+                info = inspect_image(data, upload.content_type)
+            except ValueError as exc:
+                raise HTTPException(415, detail={"code": "invalid_media", "message": str(exc)}) from exc
+            extension, mime_type, width, height = info.extension, info.mime_type, info.width, info.height
+        key, size = get_storage().put(data, extension)
         image = GenerationImage(
             user_id=user.id,
             generation_id=generation.id,
             storage_key=key,
             original_filename=(upload.filename or "upload")[:255],
-            mime_type=info.mime_type,
-            width=info.width,
-            height=info.height,
+            mime_type=mime_type,
+            width=width,
+            height=height,
             byte_size=size,
             role="reference",
         )
         db.add(image)
         db.flush()
         reference_images.append((image, "reference"))
-    max_references = 14 if chosen_model == settings.seedream_lite_model else 10
+    max_references = 30 if chosen_model == settings.seedance_model else 10
     if len(reference_images) > max_references:
         raise HTTPException(422, detail={"code": "too_many_references", "message": f"Dieses Modell unterstützt höchstens {max_references} Referenzbilder."})
     for position, (image, purpose) in enumerate(reference_images):
@@ -189,7 +212,7 @@ def clone_generation(db: Session, user: User, source: Generation, kind: Generati
     if kind == GenerationKind.variation:
         result = next((image for image in source.images if image.role == "result"), None)
         if result:
-            max_references = 14 if clone.model == settings.seedream_lite_model else 10
+            max_references = 30 if clone.model == settings.seedance_model else 10
             references = [(result.id, "variation_source")] + [item for item in references if item[0] != result.id]
             references = references[:max_references]
     for position, (image_id, purpose) in enumerate(references):
@@ -214,9 +237,4 @@ def load_generation(db: Session, generation_id: str, user_id: str) -> Generation
 
 
 def _valid_pixel_size(value: str) -> bool:
-    try:
-        width, height = [int(part) for part in value.lower().split("x", 1)]
-    except (ValueError, TypeError):
-        return False
-    pixels = width * height
-    return 921_600 <= pixels <= 4_624_220 and 1 / 16 <= width / height <= 16
+    return value in {"480p", "720p", "1080p", "2k", "4k"}

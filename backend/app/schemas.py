@@ -33,7 +33,7 @@ class RefreshRequest(BaseModel):
 class DeviceRegistrationInput(BaseModel):
     device_token: str = Field(min_length=32, max_length=200, pattern=r"^[0-9a-fA-F]+$")
     environment: Literal["sandbox", "production"] = "production"
-    bundle_id: str = Field(default="com.example.seedream", min_length=3, max_length=255)
+    bundle_id: str = Field(default="info.schreiber.cdance", min_length=3, max_length=255)
 
 
 class DeviceRegistrationResponse(BaseModel):
@@ -151,7 +151,7 @@ class PromptTemplateResponse(PromptTemplateInput):
 class SettingsResponse(BaseModel):
     auto_save_photos: bool = False
     auto_save_album: bool = False
-    album_name: str = "Seedream"
+    album_name: str = "C-Dance"
     default_model: str | None = None
     default_resolution: str | None = None
 

@@ -1,0 +1,848 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A101 /* CDanceApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A201 /* CDanceApp.swift */; };
+		A102 /* AppStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A202 /* AppStore.swift */; };
+		A103 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = A203 /* Models.swift */; };
+		A104 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A204 /* APIClient.swift */; };
+		A105 /* PhotoLibraryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A205 /* PhotoLibraryService.swift */; };
+		A106 /* MarkupEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A206 /* MarkupEditorView.swift */; };
+		A107 /* GeneratorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A207 /* GeneratorView.swift */; };
+		A108 /* ResultView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A208 /* ResultView.swift */; };
+		A109 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A209 /* HistoryView.swift */; };
+		A110 /* PromptLibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A210 /* PromptLibraryView.swift */; };
+		A111 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A211 /* SettingsView.swift */; };
+		A112 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A212 /* LoginView.swift */; };
+		A113 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A215 /* Assets.xcassets */; };
+		A114 /* PushNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A216 /* PushNotificationService.swift */; };
+		A115 /* LocalPersistence.swift in Sources */ = {isa = PBXBuildFile; fileRef = A217 /* LocalPersistence.swift */; };
+		A116 /* StandaloneService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A218 /* StandaloneService.swift */; };
+		A117 /* WatchHistorySyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A219 /* WatchHistorySyncService.swift */; };
+		E101 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E201 /* ShareViewController.swift */; };
+		E102 /* CDanceShare.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = E204 /* CDanceShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		N101 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = N201 /* NotificationService.swift */; };
+		N102 /* CDanceNotificationService.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = N204 /* CDanceNotificationService.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		T101 /* CDanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T201 /* CDanceTests.swift */; };
+		W101 /* CDanceWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = W201 /* CDanceWatchApp.swift */; };
+		W102 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A215 /* Assets.xcassets */; };
+		W103 /* CDanceWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = W202 /* CDanceWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		E701 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A701 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = E501;
+			remoteInfo = CDanceShare;
+		};
+		N701 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A701 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = N501;
+			remoteInfo = CDanceNotificationService;
+		};
+		T301 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A701 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A501;
+			remoteInfo = CDance;
+		};
+		W701 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A701 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = W501;
+			remoteInfo = CDanceWatch;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		E304 /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				E102 /* CDanceShare.appex in Embed App Extensions */,
+				N102 /* CDanceNotificationService.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		W304 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				W103 /* CDanceWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		A201 /* CDanceApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CDanceApp.swift; sourceTree = "<group>"; };
+		A202 /* AppStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStore.swift; sourceTree = "<group>"; };
+		A203 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		A204 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+		A205 /* PhotoLibraryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoLibraryService.swift; sourceTree = "<group>"; };
+		A206 /* MarkupEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkupEditorView.swift; sourceTree = "<group>"; };
+		A207 /* GeneratorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneratorView.swift; sourceTree = "<group>"; };
+		A208 /* ResultView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResultView.swift; sourceTree = "<group>"; };
+		A209 /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
+		A210 /* PromptLibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptLibraryView.swift; sourceTree = "<group>"; };
+		A211 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		A212 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
+		A213 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A214 /* CDance.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CDance.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A215 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A216 /* PushNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushNotificationService.swift; sourceTree = "<group>"; };
+		A217 /* LocalPersistence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalPersistence.swift; sourceTree = "<group>"; };
+		A218 /* StandaloneService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StandaloneService.swift; sourceTree = "<group>"; };
+		A219 /* WatchHistorySyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchHistorySyncService.swift; sourceTree = "<group>"; };
+		E201 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
+		E202 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		E203 /* CDanceShare.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = CDanceShare.entitlements; sourceTree = "<group>"; };
+		E204 /* CDanceShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = CDanceShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		N201 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
+		N202 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		N204 /* CDanceNotificationService.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = CDanceNotificationService.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		T201 /* CDanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CDanceTests.swift; sourceTree = "<group>"; };
+		T202 /* CDanceTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CDanceTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		W201 /* CDanceWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CDanceWatchApp.swift; sourceTree = "<group>"; };
+		W202 /* CDanceWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CDanceWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A301 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E301 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		N301 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		T302 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		W301 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A401 = {
+			isa = PBXGroup;
+			children = (
+				A402 /* CDance */,
+				W401 /* CDanceWatch */,
+				E401 /* CDanceShare */,
+				N401 /* CDanceNotificationService */,
+				T401 /* CDanceTests */,
+				A406 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A402 /* CDance */ = {
+			isa = PBXGroup;
+			children = (
+				A201 /* CDanceApp.swift */,
+				A202 /* AppStore.swift */,
+				A213 /* Info.plist */,
+				A215 /* Assets.xcassets */,
+				A403 /* Models */,
+				A404 /* Services */,
+				A405 /* Views */,
+			);
+			path = CDance;
+			sourceTree = "<group>";
+		};
+		A403 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				A203 /* Models.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		A404 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				A204 /* APIClient.swift */,
+				A217 /* LocalPersistence.swift */,
+				A218 /* StandaloneService.swift */,
+				A205 /* PhotoLibraryService.swift */,
+				A216 /* PushNotificationService.swift */,
+				A219 /* WatchHistorySyncService.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		A405 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				A206 /* MarkupEditorView.swift */,
+				A207 /* GeneratorView.swift */,
+				A208 /* ResultView.swift */,
+				A209 /* HistoryView.swift */,
+				A210 /* PromptLibraryView.swift */,
+				A211 /* SettingsView.swift */,
+				A212 /* LoginView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		A406 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A214 /* CDance.app */,
+				E204 /* CDanceShare.appex */,
+				N204 /* CDanceNotificationService.appex */,
+				T202 /* CDanceTests.xctest */,
+				W202 /* CDanceWatch.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		E401 /* CDanceShare */ = {
+			isa = PBXGroup;
+			children = (
+				E201 /* ShareViewController.swift */,
+				E202 /* Info.plist */,
+				E203 /* CDanceShare.entitlements */,
+			);
+			path = CDanceShare;
+			sourceTree = "<group>";
+		};
+		N401 /* CDanceNotificationService */ = {
+			isa = PBXGroup;
+			children = (
+				N201 /* NotificationService.swift */,
+				N202 /* Info.plist */,
+			);
+			path = CDanceNotificationService;
+			sourceTree = "<group>";
+		};
+		T401 /* CDanceTests */ = {
+			isa = PBXGroup;
+			children = (
+				T201 /* CDanceTests.swift */,
+			);
+			path = CDanceTests;
+			sourceTree = "<group>";
+		};
+		W401 /* CDanceWatch */ = {
+			isa = PBXGroup;
+			children = (
+				W201 /* CDanceWatchApp.swift */,
+			);
+			path = CDanceWatch;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A501 /* CDance */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A602 /* Build configuration list for PBXNativeTarget "CDance" */;
+			buildPhases = (
+				A302 /* Sources */,
+				A301 /* Frameworks */,
+				A303 /* Resources */,
+				E304 /* Embed App Extensions */,
+				W304 /* Embed Watch Content */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				E702 /* PBXTargetDependency */,
+				N702 /* PBXTargetDependency */,
+				W702 /* PBXTargetDependency */,
+			);
+			name = CDance;
+			productName = CDance;
+			productReference = A214 /* CDance.app */;
+			productType = "com.apple.product-type.application";
+		};
+		E501 /* CDanceShare */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E601 /* Build configuration list for PBXNativeTarget "CDanceShare" */;
+			buildPhases = (
+				E302 /* Sources */,
+				E301 /* Frameworks */,
+				E303 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = CDanceShare;
+			productName = CDanceShare;
+			productReference = E204 /* CDanceShare.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		N501 /* CDanceNotificationService */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = N601 /* Build configuration list for PBXNativeTarget "CDanceNotificationService" */;
+			buildPhases = (
+				N302 /* Sources */,
+				N301 /* Frameworks */,
+				N303 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = CDanceNotificationService;
+			productName = CDanceNotificationService;
+			productReference = N204 /* CDanceNotificationService.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		T501 /* CDanceTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = T601 /* Build configuration list for PBXNativeTarget "CDanceTests" */;
+			buildPhases = (
+				T303 /* Sources */,
+				T302 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				T701 /* PBXTargetDependency */,
+			);
+			name = CDanceTests;
+			productName = CDanceTests;
+			productReference = T202 /* CDanceTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		W501 /* CDanceWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = W601 /* Build configuration list for PBXNativeTarget "CDanceWatch" */;
+			buildPhases = (
+				W302 /* Sources */,
+				W301 /* Frameworks */,
+				W303 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = CDanceWatch;
+			productName = CDanceWatch;
+			productReference = W202 /* CDanceWatch.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A701 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2660;
+				LastUpgradeCheck = 2660;
+				TargetAttributes = {
+					A501 = {
+						CreatedOnToolsVersion = 26.0;
+					};
+					E501 = {
+						CreatedOnToolsVersion = 26.0;
+					};
+					N501 = {
+						CreatedOnToolsVersion = 26.0;
+					};
+					T501 = {
+						CreatedOnToolsVersion = 26.0;
+						TestTargetID = A501;
+					};
+					W501 = {
+						CreatedOnToolsVersion = 26.0;
+					};
+				};
+			};
+			buildConfigurationList = A601 /* Build configuration list for PBXProject "CDance" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = de;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				de,
+				Base,
+			);
+			mainGroup = A401;
+			productRefGroup = A406 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A501 /* CDance */,
+				E501 /* CDanceShare */,
+				N501 /* CDanceNotificationService */,
+				T501 /* CDanceTests */,
+				W501 /* CDanceWatch */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A303 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A113 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E303 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		N303 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		W303 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				W102 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A302 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A101 /* CDanceApp.swift in Sources */,
+				A102 /* AppStore.swift in Sources */,
+				A103 /* Models.swift in Sources */,
+				A104 /* APIClient.swift in Sources */,
+				A105 /* PhotoLibraryService.swift in Sources */,
+				A106 /* MarkupEditorView.swift in Sources */,
+				A107 /* GeneratorView.swift in Sources */,
+				A108 /* ResultView.swift in Sources */,
+				A109 /* HistoryView.swift in Sources */,
+				A110 /* PromptLibraryView.swift in Sources */,
+				A111 /* SettingsView.swift in Sources */,
+				A112 /* LoginView.swift in Sources */,
+				A114 /* PushNotificationService.swift in Sources */,
+				A115 /* LocalPersistence.swift in Sources */,
+				A116 /* StandaloneService.swift in Sources */,
+				A117 /* WatchHistorySyncService.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E302 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E101 /* ShareViewController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		N302 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				N101 /* NotificationService.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		T303 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				T101 /* CDanceTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		W302 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				W101 /* CDanceWatchApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		E702 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = E501 /* CDanceShare */;
+			targetProxy = E701 /* PBXContainerItemProxy */;
+		};
+		N702 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = N501 /* CDanceNotificationService */;
+			targetProxy = N701 /* PBXContainerItemProxy */;
+		};
+		T701 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A501 /* CDance */;
+			targetProxy = T301 /* PBXContainerItemProxy */;
+		};
+		W702 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = W501 /* CDanceWatch */;
+			targetProxy = W701 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		A801 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 69;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Debug;
+		};
+		A802 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 69;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				VALIDATE_PRODUCT = YES;
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Release;
+		};
+		A803 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CODE_SIGN_ENTITLEMENTS = CDance/CDance.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 69;
+				DEVELOPMENT_TEAM = TVU2AD92HJ;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = CDance/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = info.schreiber.cdance;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Debug;
+		};
+		A804 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CODE_SIGN_ENTITLEMENTS = CDance/CDance.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 69;
+				DEVELOPMENT_TEAM = TVU2AD92HJ;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = CDance/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = info.schreiber.cdance;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Release;
+		};
+		E801 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = CDanceShare/CDanceShare.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 69;
+				DEVELOPMENT_TEAM = TVU2AD92HJ;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = CDanceShare/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = info.schreiber.cdance.share;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Debug;
+		};
+		E802 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = CDanceShare/CDanceShare.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 69;
+				DEVELOPMENT_TEAM = TVU2AD92HJ;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = CDanceShare/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = info.schreiber.cdance.share;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Release;
+		};
+		N801 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 69;
+				DEVELOPMENT_TEAM = TVU2AD92HJ;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = CDanceNotificationService/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "info.schreiber.cdance.notification-service";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Debug;
+		};
+		N802 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 69;
+				DEVELOPMENT_TEAM = TVU2AD92HJ;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = CDanceNotificationService/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "info.schreiber.cdance.notification-service";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Release;
+		};
+		T801 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 69;
+				DEVELOPMENT_TEAM = TVU2AD92HJ;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = info.schreiber.cdance.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/CDance.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/CDance";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Debug;
+		};
+		T802 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 69;
+				DEVELOPMENT_TEAM = TVU2AD92HJ;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = info.schreiber.cdance.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/CDance.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/CDance";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Release;
+		};
+		W801 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 69;
+				DEVELOPMENT_TEAM = TVU2AD92HJ;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "C-Dance";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = info.schreiber.cdance;
+				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = NO;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = info.schreiber.cdance.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				VERSIONING_SYSTEM = "apple-generic";
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		W802 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 69;
+				DEVELOPMENT_TEAM = TVU2AD92HJ;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "C-Dance";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = info.schreiber.cdance;
+				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = NO;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = info.schreiber.cdance.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				VALIDATE_PRODUCT = YES;
+				VERSIONING_SYSTEM = "apple-generic";
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A601 /* Build configuration list for PBXProject "CDance" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A801 /* Debug */,
+				A802 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A602 /* Build configuration list for PBXNativeTarget "CDance" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A803 /* Debug */,
+				A804 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E601 /* Build configuration list for PBXNativeTarget "CDanceShare" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E801 /* Debug */,
+				E802 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		N601 /* Build configuration list for PBXNativeTarget "CDanceNotificationService" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				N801 /* Debug */,
+				N802 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		T601 /* Build configuration list for PBXNativeTarget "CDanceTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				T801 /* Debug */,
+				T802 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		W601 /* Build configuration list for PBXNativeTarget "CDanceWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				W801 /* Debug */,
+				W802 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = A701 /* Project object */;
+}

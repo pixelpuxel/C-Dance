@@ -1,61 +1,55 @@
-# Seedream Backend
+# C-Dance
 
-Self-hosted FastAPI backend for Seedream image generation. It provides username/password authentication, per-user Ark API-key configuration, prompt and reference-image libraries, persistent history, generation/edit/variation jobs, local image storage, a PostgreSQL schema with Alembic migrations, Redis rate limiting, and Celery workers.
+C-Dance ist eine eigenständige Film-App für Dreamina Seedance. Sie teilt das bewährte Bedienkonzept der Schwester-App Seedream, verwendet aber getrennte Bundle-IDs, App-Group, lokale Speicher, Datenbank, Backend-Domain und App-Store-Einträge.
 
-The provider adapter follows the official BytePlus ModelArk image-generation endpoint and supports Seedream 5.0 Pro, Flash, and Lite with single or multiple reference images.
+Enthalten sind:
 
-## Relationship to the iOS app and business model
+- native SwiftUI-App für iPhone und iPad samt Watch-App, Share Extension und Notification Service,
+- Standalone-Modus mit im iOS-Schlüsselbund gespeichertem BytePlus-Ark-Key,
+- selbst hostbares FastAPI-/Celery-Backend mit PostgreSQL, Redis und dauerhaftem Videospeicher,
+- Web-Oberfläche und separater MCP-Server,
+- Docker-Compose- und Reverse-Proxy-Konfiguration für `cdance.schreiber.info`.
 
-This repository contains the optional, self-hosted server component for the independently developed Seedream Studio iOS app. The iOS app can also be used in standalone mode without this server.
+## Seedance-Anbindung
 
-Users bring their own official BytePlus ModelArk account and API key. API access, inference credits, and model usage are not included, resold, or billed by the app developer; any provider charges are paid by the user directly to the API provider. The paid App Store download covers the client application itself. Self-hosting is optional, and this backend is provided under the MIT License for users who prefer to operate their own server and storage.
+Die Implementierung verwendet die asynchrone ModelArk Content Generation API:
 
-Seedream Studio is an independent client and is not affiliated with, endorsed by, or an official product of ByteDance, BytePlus, or Volcano Engine. “Seedream” is used descriptively to identify compatibility with the Seedream models exposed through the official ModelArk API. All related names and trademarks belong to their respective owners.
+- Aufgabe anlegen: `POST /api/v3/contents/generations/tasks`
+- Status und Ergebnis abfragen: `GET /api/v3/contents/generations/tasks/{id}`
+- Standardmodell: `dreamina-seedance-2-5-260628`
+- Flash-Modell: `dreamina-seedance-2-5-flash-261115`
 
-## Quick start
+Seedance 2.5 unterstützt 4–30 Sekunden, 480p bis 4K, Tonerzeugung sowie Bild-, Video- und Audioreferenzen. Ergebnis-URLs des Anbieters werden sofort heruntergeladen und dauerhaft gespeichert. Referenzvideos werden dem Anbieter als kurzlebige signierte HTTPS-URLs bereitgestellt.
 
-Requirements: Docker Engine with Docker Compose v2.
+## Lokaler Start
 
 ```bash
 cp .env.example .env
-# Replace every placeholder and optionally set ARK_API_KEY.
-docker compose up -d --build
-curl http://localhost:8000/health/ready
+docker compose up --build
 ```
 
-OpenAPI is available at `http://localhost:8000/api/docs`.
+Die Platzhalter in `.env` müssen durch eigene zufällige Geheimnisse ersetzt werden. API-Schlüssel, Apple-Schlüssel und Passwörter gehören niemals ins Repository.
 
-Create the first administrator exactly once:
-
-```bash
-curl -X POST http://localhost:8000/api/v1/setup/initialize \
-  -H 'Content-Type: application/json' \
-  -H "X-Setup-Token: $SETUP_TOKEN" \
-  -d '{"username":"admin","display_name":"Administrator","password":"replace-this-password"}'
-```
-
-The response contains session credentials. Login later with `POST /api/v1/auth/login`. A provider key can be supplied globally through `ARK_API_KEY` or stored per administrator through `PUT /api/v1/provider/config`.
-
-## Production
-
-- Put the API behind an HTTPS reverse proxy.
-- Set `PUBLIC_BASE_URL` and `CORS_ORIGINS` to your own domain.
-- Use independent random values for `POSTGRES_PASSWORD`, `JWT_SECRET`, `API_KEY_PEPPER`, and `SETUP_TOKEN`.
-- Back up both PostgreSQL and the `image_storage` volume.
-- Never commit `.env`, Ark keys, APNs keys, session tokens, or generated image data.
-- If APNs is not required, leave all `APNS_*` values empty.
-
-## Development
+Backend-Tests:
 
 ```bash
 cd backend
-python3 -m venv .venv
-. .venv/bin/activate
-pip install -e '.[test]'
-pytest
+uv sync --dev
+uv run pytest
 ```
 
-## License
+iOS-Build:
 
-MIT. See [LICENSE](LICENSE).
+```bash
+xcodebuild -project ios/CDance.xcodeproj -scheme CDance \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max' \
+  CODE_SIGNING_ALLOWED=NO build
+```
 
+## Betriebsarten
+
+Neue Installationen starten im Standalone-Modus. Der Ark-API-Key wird ausschließlich im iOS-Schlüsselbund gespeichert; Verlauf, Prompts, Referenzen und heruntergeladene Filme bleiben im App-Speicher. Die eigentliche Generierung benötigt eine Internetverbindung.
+
+Im Servermodus laufen lange Filmaufträge unabhängig vom App-Lebenszyklus in der Warteschlange weiter. Backend, Daten und Nutzerkonten sind vollständig von Seedream getrennt.
+
+Öffentlicher Kontakt: `cdance@post.schreiber.info`

@@ -42,7 +42,7 @@ def inspect_image(data: bytes, declared_mime: str | None = None) -> ImageInfo:
     if mime not in ALLOWED_MIME:
         raise ValueError("Nicht unterstütztes Bildformat.")
     if width <= 14 or height <= 14 or width * height > 36_000_000 or not (1 / 16 <= width / height <= 16):
-        raise ValueError("Das Bild erfüllt die Größen- oder Seitenverhältnisgrenzen von Seedream nicht.")
+        raise ValueError("Das Bild erfüllt die Größen- oder Seitenverhältnisgrenzen von C-Dance nicht.")
     return ImageInfo(mime, ALLOWED_MIME[mime], width, height)
 
 
@@ -119,4 +119,4 @@ def prepare_provider_image(data: bytes, max_dimension: int = 6000) -> tuple[byte
             image.save(output, "JPEG", quality=92, optimize=True)
             return output.getvalue(), "image/jpeg"
     except (UnidentifiedImageError, OSError, ValueError) as exc:
-        raise ValueError("Das Referenzbild konnte nicht für Seedream vorbereitet werden.") from exc
+        raise ValueError("Das Referenzbild konnte nicht für C-Dance vorbereitet werden.") from exc

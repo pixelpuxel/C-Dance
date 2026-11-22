@@ -29,7 +29,7 @@ def test_prompt_crud_and_generation_queue(client, token):
         response = client.post(
             "/api/v1/generate",
             headers=headers(token),
-            data={"prompt": "Ganzkörper", "template_ids": json.dumps([prompt["id"]]), "image_ids": "[]", "aspect_ratio": "3:4", "resolution": "2K"},
+            data={"prompt": "Ganzkörper", "template_ids": json.dumps([prompt["id"]]), "image_ids": "[]", "aspect_ratio": "3:4", "resolution": "720p"},
             files=[("reference_images", ("reference.png", png(), "image/png"))],
         )
     assert response.status_code == 202, response.text
@@ -46,7 +46,7 @@ def test_edit_accepts_composed_final_prompt_without_free_text(client, token):
         parent = client.post(
             "/api/v1/generate",
             headers=headers(token),
-            data={"prompt": "Ausgangsbild", "image_ids": "[]", "aspect_ratio": "auto", "resolution": "2K"},
+            data={"prompt": "Ausgangsbild", "image_ids": "[]", "aspect_ratio": "auto", "resolution": "720p"},
         )
         assert parent.status_code == 202, parent.text
         edited = client.post(
@@ -58,7 +58,7 @@ def test_edit_accepts_composed_final_prompt_without_free_text(client, token):
                 "template_ids": "[]",
                 "image_ids": "[]",
                 "aspect_ratio": "auto",
-                "resolution": "2K",
+                "resolution": "720p",
             },
         )
     assert edited.status_code == 202, edited.text
@@ -174,7 +174,7 @@ def test_session_refresh_and_logout(client):
 
 
 def test_push_device_can_be_registered_moved_and_disabled(client, token):
-    payload = {"device_token": "ab" * 32, "environment": "production", "bundle_id": "com.example.seedream"}
+    payload = {"device_token": "ab" * 32, "environment": "production", "bundle_id": "info.schreiber.cdance"}
     created = client.post("/api/v1/devices", headers=headers(token), json=payload)
     assert created.status_code == 200, created.text
     assert created.json() == {"registered": True}
@@ -217,8 +217,8 @@ def test_variation_uses_result_as_first_reference_but_regenerate_keeps_original_
     with SessionLocal() as db:
         source = Generation(
             user_id="test-user", kind=GenerationKind.generate, status=GenerationStatus.completed,
-            prompt="Grafit", final_prompt="Grafit", model="dola-seedream-5-0-pro-260628",
-            aspect_ratio="1:1", resolution="2K", parameters={},
+            prompt="Grafit", final_prompt="Grafit", model="dreamina-seedance-2-5-260628",
+            aspect_ratio="1:1", resolution="720p", parameters={},
         )
         db.add(source)
         db.flush()
@@ -247,8 +247,8 @@ def test_generation_favorite_and_rating_are_synchronized(client, token):
     with SessionLocal() as db:
         generation = Generation(
             user_id="test-user", kind=GenerationKind.generate, status=GenerationStatus.completed,
-            prompt="Test", final_prompt="Test", model="dola-seedream-5-0-pro-260628",
-            aspect_ratio="1:1", resolution="2K", parameters={},
+            prompt="Test", final_prompt="Test", model="dreamina-seedance-2-5-260628",
+            aspect_ratio="1:1", resolution="720p", parameters={},
         )
         db.add(generation)
         db.commit()
@@ -284,8 +284,8 @@ def test_delete_generation_removes_owned_files_but_preserves_library_images(clie
     with SessionLocal() as db:
         generation = Generation(
             user_id="test-user", kind=GenerationKind.generate, status=GenerationStatus.completed,
-            prompt="Test", final_prompt="Test", model="dola-seedream-5-0-pro-260628",
-            aspect_ratio="1:1", resolution="2K", parameters={},
+            prompt="Test", final_prompt="Test", model="dreamina-seedance-2-5-260628",
+            aspect_ratio="1:1", resolution="720p", parameters={},
         )
         db.add(generation)
         db.flush()

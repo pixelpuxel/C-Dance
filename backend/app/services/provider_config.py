@@ -54,8 +54,8 @@ def provider_status(db: Session, user_id: str | None = None) -> dict[str, object
     return {
         "configured": bool(key),
         "source": source,
-        "endpoint": settings.seedream_endpoint,
-        "model": settings.seedream_model,
+        "endpoint": settings.seedance_endpoint,
+        "model": settings.seedance_model,
     }
 
 

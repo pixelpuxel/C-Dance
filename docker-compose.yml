@@ -1,64 +1,110 @@
+name: cdance
 services:
   postgres:
     image: postgres:17-alpine
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: seedream
-      POSTGRES_USER: seedream
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-cdance}
+      POSTGRES_USER: ${POSTGRES_USER:-cdance}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD fehlt}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U seedream -d seedream"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cdance} -d ${POSTGRES_DB:-cdance}"]
       interval: 5s
-      timeout: 5s
+      timeout: 3s
       retries: 20
-    restart: unless-stopped
+    networks: [internal]
 
   redis:
-    image: redis:7-alpine
-    command: redis-server --appendonly yes
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
     volumes:
       - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
-      timeout: 5s
+      timeout: 3s
       retries: 20
-    restart: unless-stopped
+    networks: [internal]
 
   backend:
     build: ./backend
-    env_file: .env
+    restart: unless-stopped
+    env_file: ${ENV_FILE:-.env}
     command: ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'"]
-    ports:
-      - "8000:8000"
     volumes:
       - image_storage:/data/storage
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready')"]
-      interval: 10s
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/live')"]
+      interval: 15s
       timeout: 5s
-      retries: 20
-    restart: unless-stopped
+      retries: 10
+    networks: [internal]
 
   worker:
     build: ./backend
-    env_file: .env
+    restart: unless-stopped
+    env_file: ${ENV_FILE:-.env}
     command: ["celery", "-A", "app.celery_app:celery_app", "worker", "--loglevel=INFO", "--concurrency=2"]
     volumes:
       - image_storage:/data/storage
     depends_on:
-      backend:
-        condition: service_healthy
+      backend: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    networks: [internal]
+
+  web:
+    build: ./web
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    networks: [internal]
+
+  mcp:
+    build: ./mcp-server
+    restart: unless-stopped
+    env_file: ${ENV_FILE:-.env}
+    environment:
+      BACKEND_URL: http://backend:8000/api/v1
+      MCP_PUBLIC_HOST: ${DOMAIN:-cdance.schreiber.info}
+      MCP_OAUTH_STATE: /data/oauth-state.json
+    volumes:
+      - mcp_oauth_data:/data
+    depends_on:
+      backend: {condition: service_healthy}
+    networks: [internal]
+
+  reverse-proxy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    env_file: ${ENV_FILE:-.env}
+    ports:
+      - "127.0.0.1:${HOST_PORT:-8194}:80"
+    volumes:
+      - ./infra/Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      web: {condition: service_healthy}
+      backend: {condition: service_healthy}
+      mcp: {condition: service_started}
+    networks: [internal]
 
 volumes:
   postgres_data:
   redis_data:
   image_storage:
+  mcp_oauth_data:
 
+networks:
+  internal:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${DOCKER_SUBNET:-10.240.27.240/28}

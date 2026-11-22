@@ -74,7 +74,7 @@ def initialize_setup(payload: SetupRequest, x_setup_token: str | None = Header(d
     user = User(username=payload.username.lower().strip(), email=payload.email.lower().strip() if payload.email else None, display_name=payload.display_name.strip(), password_hash=hash_password(payload.password), is_active=True, is_admin=True)
     db.add(user)
     db.flush()
-    db.add(Setting(user_id=user.id, data={"auto_save_photos": False, "auto_save_album": False, "album_name": "Seedream"}))
+    db.add(Setting(user_id=user.id, data={"auto_save_photos": False, "auto_save_album": False, "album_name": "C-Dance"}))
     db.add(SetupState(id="singleton", completed_at=datetime.now(UTC)))
     return _issue_session(db, user)
 
@@ -153,7 +153,7 @@ def create_user(payload: UserInput, admin: User = Depends(require_admin), db: Se
     user = User(username=username, email=email, display_name=payload.display_name.strip(), password_hash=hash_password(payload.password), is_active=True, is_admin=payload.is_admin)
     db.add(user)
     db.flush()
-    db.add(Setting(user_id=user.id, data={"auto_save_photos": False, "auto_save_album": False, "album_name": "Seedream"}))
+    db.add(Setting(user_id=user.id, data={"auto_save_photos": False, "auto_save_album": False, "album_name": "C-Dance"}))
     db.commit()
     db.refresh(user)
     return user
@@ -180,7 +180,7 @@ async def generate(
     db: Session = Depends(get_db),
 ):
     if not provider_api_key(db, user.id)[0]:
-        raise HTTPException(503, detail={"code": "provider_not_configured", "message": "Seedream ist noch nicht eingerichtet. Bitte den API-Key unter Einstellungen hinterlegen."})
+        raise HTTPException(503, detail={"code": "provider_not_configured", "message": "C-Dance ist noch nicht eingerichtet. Bitte den API-Key unter Einstellungen hinterlegen."})
     generation = await create_generation(
         db, user, prompt=prompt, final_prompt=final_prompt, template_ids=parse_string_list(template_ids),
         image_ids=parse_string_list(image_ids), uploads=reference_images, model=model, aspect_ratio=aspect_ratio,
@@ -206,7 +206,7 @@ async def edit(
     db: Session = Depends(get_db),
 ):
     if not provider_api_key(db, user.id)[0]:
-        raise HTTPException(503, detail={"code": "provider_not_configured", "message": "Seedream ist noch nicht eingerichtet. Bitte den API-Key unter Einstellungen hinterlegen."})
+        raise HTTPException(503, detail={"code": "provider_not_configured", "message": "C-Dance ist noch nicht eingerichtet. Bitte den API-Key unter Einstellungen hinterlegen."})
     generation = await create_generation(
         db, user, prompt=prompt, final_prompt=final_prompt, template_ids=parse_string_list(template_ids),
         image_ids=parse_string_list(image_ids), uploads=reference_images, model=model, aspect_ratio=aspect_ratio,
@@ -288,7 +288,7 @@ def delete_generation(generation_id: str, user: User = Depends(get_current_user)
 @router.post("/generations/{generation_id}/regenerate", response_model=GenerationResponse, status_code=202, tags=["Generierungen"])
 def regenerate(generation_id: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     if not provider_api_key(db, user.id)[0]:
-        raise HTTPException(503, detail={"code": "provider_not_configured", "message": "Seedream ist noch nicht eingerichtet. Bitte den API-Key unter Einstellungen hinterlegen."})
+        raise HTTPException(503, detail={"code": "provider_not_configured", "message": "C-Dance ist noch nicht eingerichtet. Bitte den API-Key unter Einstellungen hinterlegen."})
     source = load_generation(db, generation_id, user.id)
     clone = clone_generation(db, user, source, GenerationKind.regenerate)
     _enqueue(clone.id)
@@ -298,7 +298,7 @@ def regenerate(generation_id: str, user: User = Depends(get_current_user), db: S
 @router.post("/generations/{generation_id}/variation", response_model=GenerationResponse, status_code=202, tags=["Generierungen"])
 def variation(generation_id: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     if not provider_api_key(db, user.id)[0]:
-        raise HTTPException(503, detail={"code": "provider_not_configured", "message": "Seedream ist noch nicht eingerichtet. Bitte den API-Key unter Einstellungen hinterlegen."})
+        raise HTTPException(503, detail={"code": "provider_not_configured", "message": "C-Dance ist noch nicht eingerichtet. Bitte den API-Key unter Einstellungen hinterlegen."})
     source = load_generation(db, generation_id, user.id)
     clone = clone_generation(db, user, source, GenerationKind.variation)
     clone.parameters = {**(clone.parameters or {}), "variation": True}
@@ -331,7 +331,7 @@ def generation_events(generation_id: str, user: User = Depends(get_current_user)
     return StreamingResponse(stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
-@router.post("/images", status_code=201, tags=["Bilder"])
+@router.post("/images", status_code=201, tags=["Medien"])
 async def upload_image(
     image: UploadFile = File(),
     user: User = Depends(get_current_user),
@@ -340,13 +340,24 @@ async def upload_image(
     settings = get_settings()
     data = await image.read(settings.max_upload_bytes + 1)
     if len(data) > settings.max_upload_bytes:
-        raise HTTPException(413, detail={"code": "file_too_large", "message": "Das Bild überschreitet die Upload-Grenze."})
-    try:
-        info = inspect_image(data, image.content_type)
-    except ValueError as exc:
-        raise HTTPException(415, detail={"code": "invalid_image", "message": str(exc)}) from exc
-    key, size = get_storage().put(data, info.extension)
-    record = GenerationImage(user_id=user.id, generation_id=None, storage_key=key, original_filename=(image.filename or "upload")[:255], mime_type=info.mime_type, width=info.width, height=info.height, byte_size=size, role="upload")
+        raise HTTPException(413, detail={"code": "file_too_large", "message": "Die Mediendatei überschreitet die Upload-Grenze."})
+    content_type = (image.content_type or "").lower()
+    if content_type in {"video/mp4", "video/quicktime"}:
+        extension = "mov" if content_type == "video/quicktime" else "mp4"
+        mime_type, width, height = content_type, None, None
+    elif content_type in {"audio/mpeg", "audio/mp3", "audio/wav", "audio/x-wav"}:
+        extension = "wav" if "wav" in content_type else "mp3"
+        mime_type, width, height = ("audio/wav" if extension == "wav" else "audio/mpeg"), None, None
+    else:
+        if len(data) > 30 * 1024 * 1024:
+            raise HTTPException(413, detail={"code": "image_too_large", "message": "Ein Referenzbild darf höchstens 30 MB groß sein."})
+        try:
+            info = inspect_image(data, image.content_type)
+        except ValueError as exc:
+            raise HTTPException(415, detail={"code": "invalid_media", "message": str(exc)}) from exc
+        extension, mime_type, width, height = info.extension, info.mime_type, info.width, info.height
+    key, size = get_storage().put(data, extension)
+    record = GenerationImage(user_id=user.id, generation_id=None, storage_key=key, original_filename=(image.filename or "upload")[:255], mime_type=mime_type, width=width, height=height, byte_size=size, role="upload")
     db.add(record)
     db.commit()
     db.refresh(record)
@@ -383,7 +394,7 @@ def image_content(image_id: str, token: str = Query(...), thumbnail: int | None 
             raise HTTPException(422, detail={"code": "thumbnail_failed", "message": str(exc)}) from exc
         return Response(content=content, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=1800"})
     path = storage.path(image.storage_key)
-    return FileResponse(path, media_type=image.mime_type, filename=image.original_filename or f"seedream-{image.id}")
+    return FileResponse(path, media_type=image.mime_type, filename=image.original_filename or f"cdance-{image.id}")
 
 
 @router.get("/images/{image_id}/export", tags=["Bilder"])
@@ -402,7 +413,7 @@ def image_export(
         content, mime_type, extension = export_image(get_storage().read(image.storage_key), format)
     except ValueError as exc:
         raise HTTPException(422, detail={"code": "export_failed", "message": str(exc)}) from exc
-    stem = (image.original_filename or f"seedream-{image.id}").rsplit(".", 1)[0]
+    stem = (image.original_filename or f"cdance-{image.id}").rsplit(".", 1)[0]
     return Response(
         content=content,
         media_type=mime_type,
@@ -520,10 +531,11 @@ def delete_prompt(prompt_id: str, user: User = Depends(get_current_user), db: Se
 def models(user: User = Depends(get_current_user)):
     settings = get_settings()
     aspects = ["auto", "1:1", "4:3", "3:4", "16:9", "9:16", "3:2", "2:3", "21:9"]
-    return {"default_model": settings.seedream_model, "models": [
-        ModelCapability(id=settings.seedream_model, name="Seedream 5.0 Pro", sizes=settings.configured_sizes, default_size=settings.seedream_default_size, max_reference_images=10, supports_layers=True, supports_interactive_edit=True, aspect_ratios=aspects),
-        ModelCapability(id=settings.seedream_flash_model, name="Seedream 5.0 Flash", sizes=settings.configured_sizes, default_size=settings.seedream_default_size, max_reference_images=10, supports_layers=True, supports_interactive_edit=True, aspect_ratios=aspects),
-        ModelCapability(id=settings.seedream_lite_model, name="Seedream 5.0 Lite", sizes=[size for size in settings.configured_sizes if size in {"2K", "3K", "4K"}] or ["2K"], default_size="2K", max_reference_images=14, supports_layers=False, supports_interactive_edit=False, aspect_ratios=aspects),
+    return {"default_model": settings.seedance_model, "models": [
+        ModelCapability(id=settings.seedance_model, name="Seedance 2.5", sizes=settings.configured_sizes, default_size=settings.seedance_default_resolution, max_reference_images=30, supports_layers=False, supports_interactive_edit=True, aspect_ratios=aspects),
+        ModelCapability(id=settings.seedance_flash_model, name="Seedance 2.5 Flash", sizes=["480p", "720p"], default_size="720p", max_reference_images=10, supports_layers=False, supports_interactive_edit=True, aspect_ratios=aspects),
+        ModelCapability(id=settings.seedance_20_model, name="Seedance 2.0", sizes=["480p", "720p", "1080p"], default_size="720p", max_reference_images=9, supports_layers=False, supports_interactive_edit=True, aspect_ratios=aspects),
+        ModelCapability(id=settings.seedance_fast_model, name="Seedance 2.0 Fast", sizes=["480p", "720p", "1080p"], default_size="720p", max_reference_images=9, supports_layers=False, supports_interactive_edit=True, aspect_ratios=aspects),
     ]}
 
 
@@ -603,7 +615,7 @@ def revoke_api_key(key_id: str, user: User = Depends(get_current_user), db: Sess
 
 def _enqueue(generation_id: str) -> None:
     try:
-        celery_app.send_task("seedream.process_generation", args=[generation_id])
+        celery_app.send_task("cdance.process_generation", args=[generation_id])
     except Exception as exc:
         raise HTTPException(503, detail={"code": "queue_unavailable", "message": "Die Generierung wurde gespeichert, konnte aber noch nicht an den Worker übergeben werden."}) from exc
 
