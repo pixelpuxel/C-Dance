@@ -13,6 +13,12 @@ platform :ios do
   STORE_NAME = "C-Dance"
   BUNDLE_ID = "info.schreiber.cdance"
   TEAM_ID = "TVU2AD92HJ"
+  BUNDLE_NAMES = {
+    "info.schreiber.cdance" => "C-Dance",
+    "info.schreiber.cdance.share" => "C-Dance Share",
+    "info.schreiber.cdance.notification-service" => "C-Dance Notification Service",
+    "info.schreiber.cdance.watchkitapp" => "C-Dance Watch"
+  }.freeze
 
   def root
     File.expand_path("..", __dir__)
@@ -91,8 +97,7 @@ platform :ios do
     found = Spaceship::ConnectAPI::App.find(BUNDLE_ID)
     return found if found
     UI.user_error!("App fehlt in App Store Connect") unless create
-    bundle = Spaceship::ConnectAPI::BundleId.find(BUNDLE_ID)
-    bundle ||= Spaceship::ConnectAPI::BundleId.create(name: STORE_NAME, platform: "IOS", identifier: BUNDLE_ID)
+    bundle = ensure_bundle_ids
     UI.user_error!("Bundle-ID konnte nicht angelegt werden") unless bundle
     begin
       Spaceship::ConnectAPI::App.create(name: STORE_NAME, version_string: "1.0", sku: "cdance-ios-2026", primary_locale: "de-DE", bundle_id: BUNDLE_ID, platforms: ["IOS"])
@@ -108,6 +113,25 @@ platform :ios do
     session_bundle ||= Spaceship::ConnectAPI::BundleId.create(client: session_client, name: STORE_NAME, platform: "IOS", identifier: BUNDLE_ID)
     Spaceship::ConnectAPI::App.create(client: session_client, name: STORE_NAME, version_string: "1.0", sku: "cdance-ios-2026", primary_locale: "de-DE", bundle_id: session_bundle.identifier, platforms: ["IOS"])
     Spaceship::ConnectAPI::App.find(BUNDLE_ID, client: session_client) || UI.user_error!("App konnte nicht angelegt werden")
+  end
+
+  def ensure_bundle_ids
+    bundles = BUNDLE_NAMES.to_h do |identifier, name|
+      bundle = Spaceship::ConnectAPI::BundleId.find(identifier)
+      bundle ||= Spaceship::ConnectAPI::BundleId.create(name: name, platform: "IOS", identifier: identifier)
+      UI.user_error!("Bundle-ID #{identifier} konnte nicht angelegt werden") unless bundle
+      [identifier, bundle]
+    end
+
+    {
+      BUNDLE_ID => %w[PUSH_NOTIFICATIONS APP_GROUPS],
+      "info.schreiber.cdance.share" => %w[APP_GROUPS]
+    }.each do |identifier, required|
+      bundle = bundles.fetch(identifier)
+      available = bundle.get_capabilities.map(&:capability_type)
+      required.each { |capability| bundle.create_capability(capability) unless available.include?(capability) }
+    end
+    bundles.fetch(BUNDLE_ID)
   end
 
   def internal_group(app_record)
@@ -231,8 +255,15 @@ platform :ios do
     assign_tester(app_record)
   end
 
+  lane :prepare_bundle_ids do
+    api_key
+    ensure_bundle_ids
+    UI.success("C-Dance Bundle-IDs und API-fähige Capabilities sind vorbereitet")
+  end
+
   lane :release_archive do
     api_key
+    ensure_bundle_ids
     result = archive
     UI.success("C-Dance #{result[:version]} (#{result[:build]}) geprüft")
   end
