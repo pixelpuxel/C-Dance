@@ -10,7 +10,8 @@
         reverse_proxy mcp:8001
     }
 
-    handle /api/* {
+    @backend path /api/* /health/*
+    handle @backend {
         reverse_proxy backend:8000
     }
 
