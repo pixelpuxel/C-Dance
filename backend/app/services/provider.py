@@ -127,6 +127,8 @@ class ArkSeedanceProvider:
             return "Die Anfrage wurde durch die Inhaltsrichtlinien des Videoanbieters abgelehnt."
         if "balance" in lowered or "quota" in lowered:
             return "Für die Filmgenerierung ist nicht genügend Guthaben oder Kontingent verfügbar."
+        if "modelnotopen" in lowered or "model not open" in lowered:
+            return "Das gewählte Seedance-Modell ist für diesen Ark-Account noch nicht freigeschaltet. Bitte das Modell in der BytePlus-Konsole aktivieren."
         if status == 400:
             return "Der Videoanbieter konnte diese Kombination aus Prompt, Referenzen und Einstellungen nicht verarbeiten."
         return "Die Filmgenerierung ist beim Anbieter fehlgeschlagen."
