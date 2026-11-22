@@ -13,6 +13,10 @@ depends_on = None
 
 
 def upgrade() -> None:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    if "device_registrations" in inspector.get_table_names():
+        return
     op.create_table(
         "device_registrations",
         sa.Column("id", sa.String(length=36), nullable=False),
