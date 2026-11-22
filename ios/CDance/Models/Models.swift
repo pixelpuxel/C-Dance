@@ -49,7 +49,7 @@ enum AppModeConfiguration {
     static let modeKey = "cdance.appMode"
     static let onboardingKey = "cdance.onboardingCompleted"
     static let serverURLKey = "cdance.serverURL"
-    static let defaultServerURL = URL(string: "https://cdance.schreiber.info/api/v1")!
+    static let defaultServerURL = URL(string: "https://seadance.vps2.schreiber.info/api/v1")!
 
     static var mode: AppMode {
         get {

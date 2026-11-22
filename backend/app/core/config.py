@@ -17,8 +17,8 @@ class Settings(BaseSettings):
     api_key_pepper: str = Field(min_length=32)
     jwt_ttl_minutes: int = 15
     setup_token: str = Field(min_length=32)
-    public_base_url: str = "https://cdance.schreiber.info"
-    cors_origins: str = "https://cdance.schreiber.info"
+    public_base_url: str = "https://seadance.vps2.schreiber.info"
+    cors_origins: str = "https://seadance.vps2.schreiber.info"
 
     storage_backend: str = "local"
     storage_root: Path = Path("/data/storage")

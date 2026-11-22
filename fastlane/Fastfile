@@ -335,7 +335,7 @@ platform :ios do
         email_address: secure["APP_REVIEW_CONTACT_EMAIL"],
         demo_user: secure["APP_REVIEW_DEMO_USER"],
         demo_password: secure["APP_REVIEW_DEMO_PASSWORD"],
-        notes: "To review film generation, choose Server Mode during onboarding, enter https://cdance.schreiber.info and sign in with the review account. This isolated account has an empty history and a configured video provider. Standalone mode can also be explored without signing in by choosing the preview option. The Apple Watch companion displays completed films synced from the iPhone app."
+        notes: "To review film generation, choose Server Mode during onboarding, enter https://seadance.vps2.schreiber.info and sign in with the review account. This isolated account has an empty history and a configured video provider. Standalone mode can also be explored without signing in by choosing the preview option. The Apple Watch companion displays completed films synced from the iPhone app."
       },
       submission_information: {
         export_compliance_uses_encryption: false,

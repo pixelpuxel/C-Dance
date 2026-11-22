@@ -8,7 +8,7 @@ Enthalten sind:
 - Standalone-Modus mit im iOS-Schlüsselbund gespeichertem BytePlus-Ark-Key,
 - selbst hostbares FastAPI-/Celery-Backend mit PostgreSQL, Redis und dauerhaftem Videospeicher,
 - Web-Oberfläche und separater MCP-Server,
-- Docker-Compose- und Reverse-Proxy-Konfiguration für `cdance.schreiber.info`.
+- Docker-Compose- und Reverse-Proxy-Konfiguration für `seadance.vps2.schreiber.info`.
 
 ## Seedance-Anbindung
 

@@ -18,7 +18,7 @@ actor APIClient {
     #if DEBUG
     var baseURL = URL(string: "http://localhost:8000/api/v1")!
     #else
-    var baseURL = URL(string: "https://cdance.schreiber.info/api/v1")!
+    var baseURL = URL(string: "https://seadance.vps2.schreiber.info/api/v1")!
     #endif
     private let decoder = JSONDecoder.cdance()
     private let encoder = JSONEncoder()

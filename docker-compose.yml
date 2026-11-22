@@ -74,7 +74,7 @@ services:
     env_file: ${ENV_FILE:-.env}
     environment:
       BACKEND_URL: http://backend:8000/api/v1
-      MCP_PUBLIC_HOST: ${DOMAIN:-cdance.schreiber.info}
+      MCP_PUBLIC_HOST: ${DOMAIN:-seadance.vps2.schreiber.info}
       MCP_OAUTH_STATE: /data/oauth-state.json
     volumes:
       - mcp_oauth_data:/data
