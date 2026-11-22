@@ -98,7 +98,7 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Toggle("Fertige Bilder melden", isOn: Binding(
+                    Toggle("Fertige Filme melden", isOn: Binding(
                         get: { store.pushNotificationsEnabled },
                         set: { enabled in
                             changingPushSetting = true
@@ -154,7 +154,7 @@ struct SettingsView: View {
                 Button("API-Key entfernen", role: .destructive) { Task { await store.removeProvider() } }
                 Button("Abbrechen", role: .cancel) {}
             } message: {
-                Text("Neue Bilder können erst wieder erstellt werden, nachdem ein gültiger Schlüssel gespeichert wurde.")
+                Text("Neue Filme können erst wieder erstellt werden, nachdem ein gültiger Schlüssel gespeichert wurde.")
             }
         }
     }

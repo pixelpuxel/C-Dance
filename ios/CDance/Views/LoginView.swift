@@ -105,7 +105,7 @@ struct StandaloneOnboardingView: View {
                 VStack(alignment: .leading, spacing: 24) {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("C-Dance").font(.largeTitle.bold())
-                        Text("Bilder direkt auf deinem Gerät erstellen")
+                        Text("Filme direkt auf deinem Gerät erstellen")
                             .font(.title3.weight(.semibold))
                         Text("Im Standalone-Modus bleiben Prompts, Referenzbilder, Verlauf und Ergebnisse auf diesem Gerät. Nur die Generierungsanfrage wird direkt an BytePlus Ark gesendet.")
                             .foregroundStyle(.secondary)

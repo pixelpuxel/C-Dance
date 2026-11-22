@@ -149,7 +149,7 @@ struct WatchGalleryView: View {
             Group {
                 if store.items.isEmpty {
                     ContentUnavailableView {
-                        Label("Noch keine Bilder", systemImage: "photo.stack")
+                        Label("Noch keine Filme", systemImage: "film")
                     } description: {
                         Text("Öffne CDance auf dem iPhone, um den Verlauf zu übertragen.")
                     }

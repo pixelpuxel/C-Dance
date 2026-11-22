@@ -98,8 +98,9 @@ platform :ios do
       Spaceship::ConnectAPI::App.create(name: STORE_NAME, version_string: "1.0", sku: "cdance-ios-2026", primary_locale: "de-DE", bundle_id: BUNDLE_ID, platforms: ["IOS"])
       return Spaceship::ConnectAPI::App.find(BUNDLE_ID) if Spaceship::ConnectAPI::App.find(BUNDLE_ID)
     rescue StandardError
-      UI.message("Der API-Schlüssel darf den App-Datensatz nicht anlegen; Apple-ID-Fallback wird verwendet")
+      UI.message("Der API-Schlüssel darf den App-Datensatz nicht anlegen; eine bereits authentifizierte Apple-Sitzung ist erforderlich")
     end
+    UI.user_error!("App-Datensatz fehlt und es ist keine bestehende Apple-Sitzung hinterlegt") if ENV["FASTLANE_SESSION"].to_s.empty?
     apple_id = ENV["APP_STORE_CONNECT_APPLE_ID"] || secure_configuration["APP_STORE_CONNECT_APPLE_ID"]
     UI.user_error!("Apple-ID für das Anlegen des App-Datensatzes fehlt") if apple_id.to_s.empty?
     session_client = Spaceship::ConnectAPI.login(apple_id, nil, portal_team_id: TEAM_ID, skip_select_team: true)

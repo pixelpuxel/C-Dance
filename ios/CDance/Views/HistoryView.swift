@@ -74,9 +74,9 @@ struct HistoryView: View {
                     InitialDataStateView(title: "Dein Verlauf", symbol: "photo.stack")
                 } else if store.generations.isEmpty {
                     ContentUnavailableView {
-                        Label("Noch keine Bilder", systemImage: "photo.stack")
+                        Label("Noch keine Filme", systemImage: "film")
                     } description: {
-                        Text("Deine erzeugten Bilder und laufenden Aufträge erscheinen hier.")
+                        Text("Deine erzeugten Filme und laufenden Aufträge erscheinen hier.")
                     } actions: {
                         Button("Film erstellen") { store.selectedTab = 0 }
                             .buttonStyle(.borderedProminent)
@@ -1812,7 +1812,7 @@ private struct FavoriteAlbumView: View {
                 albumPicker
                 if favorites.isEmpty {
                     ContentUnavailableView {
-                        Label(albumRating == 0 ? "Noch keine Favoriten" : "Keine Bilder in diesem Album", systemImage: albumRating == 0 ? "heart" : "star")
+                        Label(albumRating == 0 ? "Noch keine Favoriten" : "Keine Filme in diesem Album", systemImage: albumRating == 0 ? "heart" : "star")
                     } description: {
                         Text(albumRating == 0
                              ? "Tippe im Verlauf oder in der Ergebnisansicht auf das Herz."
