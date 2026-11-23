@@ -53,6 +53,33 @@ platform :ios do
     app_store_connect_api_key(key_id: key_id, issuer_id: issuer_id, key_filepath: path, duration: 1200, in_house: false)
   end
 
+  # Apple removed Fastlane's former App Store Connect login configuration
+  # endpoint in September 2026. Read the public login widget identifier and
+  # cache it where Spaceship expects it until Fastlane contains the fix.
+  def refresh_login_widget_key
+    login_response = Net::HTTP.get_response(URI("https://appstoreconnect.apple.com/login"))
+    UI.user_error!("Apple-Login-Konfiguration ist nicht erreichbar") unless login_response.is_a?(Net::HTTPSuccess)
+    loader_path = login_response.body[%r{https://unpkg\.apple\.com/[^"']+/pre/index\.[^"']+\.js}]
+    UI.user_error!("Apple-Login-Loader wurde nicht gefunden") unless loader_path
+    loader_response = Net::HTTP.get_response(URI(loader_path))
+    UI.user_error!("Apple-Login-Loader ist nicht erreichbar") unless loader_response.is_a?(Net::HTTPSuccess)
+    module_path = loader_response.body[%r{https://unpkg\.apple\.com/[^"']+/chunks/ASC\.[^"']+\.js}]
+    UI.user_error!("Apple-Login-Modul wurde nicht gefunden") unless module_path
+    module_response = Net::HTTP.get_response(URI(module_path))
+    UI.user_error!("Apple-Login-Modul ist nicht erreichbar") unless module_response.is_a?(Net::HTTPSuccess)
+    widget_key = module_response.body[/getIDMSAppIdKey:\w+=>\w+\?"([a-f0-9]{64})"/, 1]
+    UI.user_error!("Apple-Login-Widgetkennung wurde nicht gefunden") unless widget_key
+    File.write("/tmp/spaceship_itc_service_key.txt", widget_key)
+  end
+
+  def apple_session_client
+    return @apple_session_client if @apple_session_client
+    apple_id = ENV["APP_STORE_CONNECT_APPLE_ID"] || secure_configuration["APP_STORE_CONNECT_APPLE_ID"]
+    UI.user_error!("Vorhandenes Apple-Konto fehlt") if apple_id.to_s.empty?
+    refresh_login_widget_key
+    @apple_session_client = Spaceship::ConnectAPI.login(apple_id, nil, portal_team_id: TEAM_ID, skip_select_team: true)
+  end
+
   def simulator
     devices = JSON.parse(sh("xcrun", "simctl", "list", "devices", "available", "-j", log: false)).fetch("devices").values.flatten
     requested_id = ENV["CDANCE_SIMULATOR_UDID"]
@@ -105,10 +132,7 @@ platform :ios do
     rescue StandardError
       UI.message("Der API-Schlüssel darf den App-Datensatz nicht anlegen; eine bereits authentifizierte Apple-Sitzung ist erforderlich")
     end
-    UI.user_error!("App-Datensatz fehlt und es ist keine bestehende Apple-Sitzung hinterlegt") if ENV["FASTLANE_SESSION"].to_s.empty?
-    apple_id = ENV["APP_STORE_CONNECT_APPLE_ID"] || secure_configuration["APP_STORE_CONNECT_APPLE_ID"]
-    UI.user_error!("Apple-ID für das Anlegen des App-Datensatzes fehlt") if apple_id.to_s.empty?
-    session_client = Spaceship::ConnectAPI.login(apple_id, nil, portal_team_id: TEAM_ID, skip_select_team: true)
+    session_client = apple_session_client
     session_bundle = Spaceship::ConnectAPI::BundleId.find(BUNDLE_ID, client: session_client)
     session_bundle ||= Spaceship::ConnectAPI::BundleId.create(client: session_client, name: STORE_NAME, platform: "IOS", identifier: BUNDLE_ID)
     Spaceship::ConnectAPI::App.create(client: session_client, name: STORE_NAME, version_string: "1.0", sku: "cdance-ios-2026", primary_locale: "de-DE", bundle_id: session_bundle.identifier, platforms: ["IOS"])
@@ -134,6 +158,27 @@ platform :ios do
     bundles.fetch(BUNDLE_ID)
   end
 
+  def ensure_app_group
+    refresh_login_widget_key
+    apple_id = ENV["APP_STORE_CONNECT_APPLE_ID"] || secure_configuration["APP_STORE_CONNECT_APPLE_ID"]
+    UI.user_error!("Vorhandenes Apple-Konto fehlt") if apple_id.to_s.empty?
+    Spaceship::Portal.login(apple_id)
+    Spaceship::Portal.client.team_id = TEAM_ID
+    group = Spaceship::Portal::AppGroup.find("group.info.schreiber.cdance")
+    group ||= Spaceship::Portal::AppGroup.create!(group_id: "group.info.schreiber.cdance", name: "C-Dance Shared Media")
+    UI.user_error!("C-Dance App-Gruppe fehlt") unless group
+
+    [BUNDLE_ID, "info.schreiber.cdance.share"].each do |identifier|
+      record = Spaceship::Portal::App.find(identifier)
+      UI.user_error!("Portal-App-ID #{identifier} fehlt") unless record
+      record.update_service(Spaceship::Portal::AppService::AppGroup.on)
+      record = record.details
+      groups = record.associated_groups || []
+      record.associate_groups(groups + [group]) unless groups.any? { |item| item.group_id == group.group_id }
+    end
+    group
+  end
+
   def internal_group(app_record)
     group = app_record.get_beta_groups.find { |candidate| candidate.name == "Interne Tester" && candidate.is_internal_group }
     unless group
@@ -157,11 +202,16 @@ platform :ios do
   def assign_tester(app_record)
     email = tester_email
     group = internal_group(app_record)
+    session_client = nil
     tester = app_record.get_beta_testers(filter: { email: email }, includes: "apps,betaGroups").first
     unless tester
       user = Spaceship::ConnectAPI::User.all.find { |candidate| candidate.email.to_s.casecmp?(email) }
+      unless user
+        session_client = apple_session_client
+        user = Spaceship::ConnectAPI::User.find(client: session_client, email: email).first
+      end
       UI.user_error!("Tester ist kein Teammitglied") unless user
-      group.post_bulk_beta_tester_assignments(beta_testers: [{ email: email, firstName: user.first_name, lastName: user.last_name }])
+      group.post_bulk_beta_tester_assignments(client: session_client, beta_testers: [{ email: email, firstName: user.first_name, lastName: user.last_name }])
       8.times do
         sleep(5)
         tester = app_record.get_beta_testers(filter: { email: email }, includes: "apps,betaGroups").first
@@ -170,7 +220,9 @@ platform :ios do
     end
     UI.user_error!("Tester-Datensatz fehlt") unless tester
     members = Spaceship::ConnectAPI.get_beta_testers(filter: { betaGroups: group.id }).all_pages.flat_map(&:to_models)
-    group.add_beta_testers(beta_tester_ids: [tester.id]) unless members.any? { |member| member.id == tester.id }
+    group.add_beta_testers(client: session_client, beta_tester_ids: [tester.id]) unless members.any? { |member| member.id == tester.id }
+    members = Spaceship::ConnectAPI.get_beta_testers(filter: { betaGroups: group.id }).all_pages.flat_map(&:to_models)
+    UI.user_error!("Testerzuordnung nicht bestätigt") unless members.any? { |member| member.id == tester.id }
   end
 
   def live_build(app_record, selected_version, selected_build)
@@ -250,7 +302,10 @@ platform :ios do
 
   lane :testflight_preflight do
     api_key
+    ensure_bundle_ids
+    ensure_app_group
     app_record = app(create: true)
+    api_key
     internal_group(app_record)
     assign_tester(app_record)
   end
@@ -259,6 +314,13 @@ platform :ios do
     api_key
     ensure_bundle_ids
     UI.success("C-Dance Bundle-IDs und API-fähige Capabilities sind vorbereitet")
+  end
+
+  lane :prepare_app_group do
+    api_key
+    ensure_bundle_ids
+    ensure_app_group
+    UI.success("C-Dance App-Gruppe ist mit Haupt-App und Teilen-Erweiterung verbunden")
   end
 
   lane :release_archive do
