@@ -133,14 +133,14 @@ final class CDanceTests:XCTestCase{
         XCTAssertEqual(HistoryPaginationMockURLProtocol.requestedOffsets, [0, 100, 200])
     }
 
-    func testStandaloneModelsMatchDocumentedCDanceCapabilities() {
+    func testStandaloneModelsMatchDocumentedSeedanceCapabilities() {
         let response = StandaloneService.modelsResponse
-        XCTAssertEqual(response.defaultModel, "dola-cdance-5-0-pro-260628")
-        XCTAssertEqual(response.models.first?.name, "CDance 5.0 Pro")
-        XCTAssertNotNil(response.models.first(where: { $0.id == "dola-cdance-5-5-261028" }))
-        XCTAssertEqual(response.models.first(where: { $0.id.contains("pro") })?.maxReferenceImages, 10)
-        XCTAssertEqual(response.models.first(where: { $0.id.contains("lite") })?.maxReferenceImages, 14)
-        XCTAssertEqual(response.models.first?.sizes, ["1K", "1.5K", "2K"])
+        XCTAssertEqual(response.defaultModel, "dreamina-seedance-2-5-260628")
+        XCTAssertEqual(response.models.first?.name, "Seedance 2.5")
+        XCTAssertNotNil(response.models.first(where: { $0.id == "dreamina-seedance-2-5-flash-261115" }))
+        XCTAssertEqual(response.models.first(where: { $0.id == "dreamina-seedance-2-5-260628" })?.maxReferenceImages, 30)
+        XCTAssertEqual(response.models.first(where: { $0.id == "dreamina-seedance-2-5-flash-261115" })?.maxReferenceImages, 10)
+        XCTAssertEqual(response.models.first?.sizes, ["480p", "720p", "1080p", "4k"])
     }
 
     func testStandalonePromptPersistenceSurvivesServiceRestart() async throws {
