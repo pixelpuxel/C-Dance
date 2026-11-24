@@ -50,7 +50,16 @@ platform :ios do
     ENV["APP_STORE_CONNECT_API_KEY_PATH"] ||= path
     ENV["APP_STORE_CONNECT_API_KEY_ID"] ||= key_id
     ENV["APP_STORE_CONNECT_ISSUER_ID"] ||= issuer_id
-    app_store_connect_api_key(key_id: key_id, issuer_id: issuer_id, key_filepath: path, duration: 1200, in_house: false)
+    key = app_store_connect_api_key(
+      key_id: key_id,
+      issuer_id: issuer_id,
+      key_filepath: path,
+      duration: 1200,
+      in_house: false,
+      set_spaceship_token: true
+    )
+    UI.user_error!("App-Store-Connect-API-Sitzung konnte nicht aufgebaut werden") unless Spaceship::ConnectAPI.token
+    key
   end
 
   # Apple removed Fastlane's former App Store Connect login configuration
@@ -327,7 +336,6 @@ platform :ios do
   lane :testflight_preflight do
     api_key
     ensure_bundle_ids
-    ensure_app_group
     app_record = app(create: true)
     api_key
     internal_group(app_record)
