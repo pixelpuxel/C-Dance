@@ -79,7 +79,7 @@ struct ResultView: View {
         }
         .fullScreenCover(item: $galleryPresentation, onDismiss: applyGallerySelection) { presentation in
             HistoryGalleryViewer(
-                generations: galleryGenerations,
+                generations: fullScreenGenerations,
                 initialGenerationID: presentation.generationID,
                 initialImage: presentation.image,
                 favoriteGenerationIDs: favoriteGenerationIDs,
@@ -128,10 +128,23 @@ struct ResultView: View {
         VStack(spacing: 0) {
             Group {
                 if generation.resultImage?.isVideo == true, let videoURL {
-                    VideoPlayer(player: AVPlayer(url: videoURL))
-                        .frame(maxWidth: .infinity)
-                        .aspectRatio(Self.videoAspectRatio(for: generation.aspectRatio), contentMode: .fit)
-                        .accessibilityLabel("Erzeugter Film")
+                    ZStack(alignment: .bottomTrailing) {
+                        VideoPlayer(player: AVPlayer(url: videoURL))
+                            .frame(maxWidth: .infinity)
+                            .aspectRatio(Self.videoAspectRatio(for: generation.aspectRatio), contentMode: .fit)
+                            .contentShape(Rectangle())
+                            .simultaneousGesture(TapGesture().onEnded { openFilmGallery() })
+                            .accessibilityLabel("Erzeugter Film im Vollbild öffnen")
+                        Button { openFilmGallery() } label: {
+                            Label("Vollbild", systemImage: "arrow.up.left.and.arrow.down.right")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 10).padding(.vertical, 7)
+                                .background(.black.opacity(0.68), in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .padding(10)
+                    }
                 } else if let displayedImage = image ?? previewImage {
                     ZStack {
                         Button {
@@ -199,6 +212,15 @@ struct ResultView: View {
         let parts = ratio.split(separator: ":").compactMap { Double($0) }
         guard parts.count == 2, parts[1] > 0 else { return 16 / 9 }
         return CGFloat(parts[0]) / CGFloat(parts[1])
+    }
+
+    private var fullScreenGenerations: [Generation] {
+        galleryGenerations.contains(where: { $0.id == generation.id }) ? galleryGenerations : [generation]
+    }
+
+    private func openFilmGallery() {
+        gallerySelectionID = generation.id
+        galleryPresentation = GalleryPresentation(generationID: generation.id, image: image ?? previewImage)
     }
 
     private var primaryActions: some View {
@@ -302,7 +324,7 @@ struct ResultView: View {
                 Button { share = true } label: {
                     Label("Teilen", systemImage: "square.and.arrow.up").frame(maxWidth: .infinity, minHeight: 44)
                 }
-                .buttonStyle(.bordered).disabled(image == nil)
+                .buttonStyle(.bordered).disabled(image == nil && videoURL == nil)
 
                 Button { Task { await save() } } label: {
                     if activeAction == "save" {
@@ -311,7 +333,7 @@ struct ResultView: View {
                         Label("In Fotos", systemImage: "square.and.arrow.down").frame(maxWidth: .infinity, minHeight: 44)
                     }
                 }
-                .buttonStyle(.bordered).disabled(image == nil || activeAction == "save")
+                .buttonStyle(.bordered).disabled((image == nil && videoURL == nil) || activeAction == "save")
             }
 
             VStack(alignment: .leading, spacing: 5) {
@@ -466,13 +488,22 @@ struct ResultView: View {
         guard let api = generation.resultImage else { return }
         activeAction = "save"
         do {
-            let data = try await APIClient.shared.imageData(api)
-            try await PhotoLibraryService.saveOrAddExisting(
-                data,
-                generationID: generation.id,
-                albumNames: store.autoSaveAlbum ? [store.albumName] : [],
-                sourceAlbumName: store.albumName
-            )
+            if api.isVideo {
+                let fileURL = try await APIClient.shared.mediaFileURL(api)
+                try await PhotoLibraryService.saveOrAddExisting(
+                    fileURL: fileURL,
+                    generationID: generation.id,
+                    albumNames: store.autoSaveAlbum ? [store.albumName] : []
+                )
+            } else {
+                let data = try await APIClient.shared.imageData(api)
+                try await PhotoLibraryService.saveOrAddExisting(
+                    data,
+                    generationID: generation.id,
+                    albumNames: store.autoSaveAlbum ? [store.albumName] : [],
+                    sourceAlbumName: store.albumName
+                )
+            }
             confirmation = "In Fotos gespeichert."
         } catch {
             store.error = error.localizedDescription
@@ -492,7 +523,7 @@ struct ResultView: View {
 private struct GalleryPresentation: Identifiable {
     let id = UUID()
     let generationID: String
-    let image: UIImage
+    let image: UIImage?
 }
 
 private struct StarRatingControl: View {
@@ -541,10 +572,11 @@ enum GalleryDismissPolicy {
 }
 
 struct HistoryGalleryViewer: View {
+    @EnvironmentObject private var store: AppStore
     @Environment(\.dismiss) private var dismiss
     let generations: [Generation]
     let initialGenerationID: String
-    let initialImage: UIImage
+    let initialImage: UIImage?
     let favoriteGenerationIDs: Set<String>
     let onToggleFavorite: (Generation) -> Void
     let generationRatings: [String: Int]
@@ -560,13 +592,16 @@ struct HistoryGalleryViewer: View {
     @State private var favorites: Set<String>
     @State private var ratings: [String: Int]
     @State private var shareItem: ShareMediaItem?
+    @State private var controlsVisible: Bool
+    @State private var savingToPhotos = false
+    @State private var galleryMessage: String?
     @State private var zoomedGenerationIDs: Set<String> = []
     @GestureState private var dismissOffset: CGFloat = 0
 
     init(
         generations: [Generation],
         initialGenerationID: String,
-        initialImage: UIImage,
+        initialImage: UIImage?,
         favoriteGenerationIDs: Set<String>,
         onToggleFavorite: @escaping (Generation) -> Void,
         generationRatings: [String: Int],
@@ -586,9 +621,11 @@ struct HistoryGalleryViewer: View {
         self.showsPageIndicator = showsPageIndicator
         self.onOpenSetup = onOpenSetup
         _selectionID = State(initialValue: initialGenerationID)
-        _images = State(initialValue: [initialGenerationID: initialImage])
+        _images = State(initialValue: initialImage.map { [initialGenerationID: $0] } ?? [:])
         _favorites = State(initialValue: favoriteGenerationIDs)
         _ratings = State(initialValue: generationRatings)
+        let initialIsVideo = generations.first(where: { $0.id == initialGenerationID })?.resultImage?.isVideo == true
+        _controlsVisible = State(initialValue: !initialIsVideo)
     }
 
     var body: some View {
@@ -602,6 +639,10 @@ struct HistoryGalleryViewer: View {
                         failed: failedIDs.contains(generation.id),
                         title: "Ergebnisfilm",
                         onClose: { dismiss() },
+                        onSingleTap: {
+                            guard generation.resultImage?.isVideo == true else { dismiss(); return }
+                            withAnimation(.easeInOut(duration: 0.18)) { controlsVisible.toggle() }
+                        },
                         onZoomChanged: { zoomed in
                             if zoomed { zoomedGenerationIDs.insert(generation.id) }
                             else { zoomedGenerationIDs.remove(generation.id) }
@@ -620,6 +661,7 @@ struct HistoryGalleryViewer: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.black.opacity(0.82), for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbar(controlsVisible ? .visible : .hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Schließen") { dismiss() }
@@ -635,13 +677,25 @@ struct HistoryGalleryViewer: View {
                 }
             }
             .task(id: selectionID) { await loadSelection() }
-            .onChange(of: selectionID) { _, newValue in onSelection(newValue) }
+            .onChange(of: selectionID) { _, newValue in
+                onSelection(newValue)
+                let isVideo = generations.first(where: { $0.id == newValue })?.resultImage?.isVideo == true
+                withAnimation(.easeInOut(duration: 0.18)) { controlsVisible = !isVideo }
+            }
             .onAppear { onSelection(selectionID) }
             .safeAreaInset(edge: .bottom) {
-                galleryControls
+                if controlsVisible { galleryControls.transition(.move(edge: .bottom).combined(with: .opacity)) }
             }
             .sheet(item: $shareItem) { item in
                 ShareSheet(items: [item.value])
+            }
+            .alert("Hinweis", isPresented: Binding(
+                get: { galleryMessage != nil },
+                set: { if !$0 { galleryMessage = nil } }
+            )) {
+                Button("OK") { galleryMessage = nil }
+            } message: {
+                Text(galleryMessage ?? "")
             }
         }
     }
@@ -677,6 +731,14 @@ struct HistoryGalleryViewer: View {
             .tint(.white)
             .disabled(images[selectionID] == nil && videos[selectionID] == nil)
             .accessibilityLabel("Film teilen")
+
+            Button { Task { await saveCurrentToPhotos() } } label: {
+                if savingToPhotos { ProgressView().tint(.white) }
+                else { Image(systemName: "square.and.arrow.down") }
+            }
+            .tint(.white)
+            .disabled(currentGeneration?.resultImage == nil || savingToPhotos)
+            .accessibilityLabel("In Fotos sichern")
         }
         .font(.subheadline.weight(.semibold))
         .buttonStyle(.bordered)
@@ -692,6 +754,39 @@ struct HistoryGalleryViewer: View {
         if rating > 0 { ratings[generation.id] = min(max(rating, 1), 5) }
         else { ratings[generation.id] = nil }
         onSetRating(generation, rating)
+    }
+
+    private func saveCurrentToPhotos() async {
+        guard let generation = currentGeneration, let apiImage = generation.resultImage else { return }
+        savingToPhotos = true
+        defer { savingToPhotos = false }
+        do {
+            let albums = store.autoSaveAlbum ? [store.albumName] : []
+            if apiImage.isVideo {
+                let fileURL: URL
+                if let loadedURL = videos[generation.id] {
+                    fileURL = loadedURL
+                } else {
+                    fileURL = try await APIClient.shared.mediaFileURL(apiImage)
+                }
+                try await PhotoLibraryService.saveOrAddExisting(
+                    fileURL: fileURL,
+                    generationID: generation.id,
+                    albumNames: albums
+                )
+            } else {
+                let data = try await APIClient.shared.imageData(apiImage)
+                try await PhotoLibraryService.saveOrAddExisting(
+                    data,
+                    generationID: generation.id,
+                    albumNames: albums,
+                    sourceAlbumName: store.albumName
+                )
+            }
+            galleryMessage = apiImage.isVideo ? "Der Film wurde in Fotos gespeichert." : "Das Bild wurde in Fotos gespeichert."
+        } catch {
+            galleryMessage = error.localizedDescription
+        }
     }
 
     private var positionTitle: String {
@@ -775,6 +870,7 @@ private struct GalleryImagePage: View {
     let failed: Bool
     let title: String
     let onClose: () -> Void
+    let onSingleTap: () -> Void
     let onZoomChanged: (Bool) -> Void
 
     var body: some View {
@@ -782,6 +878,8 @@ private struct GalleryImagePage: View {
             Color.black
             if isVideo, let videoURL {
                 VideoPlayer(player: AVPlayer(url: videoURL))
+                    .contentShape(Rectangle())
+                    .simultaneousGesture(TapGesture().onEnded(onSingleTap))
                     .accessibilityLabel("Ergebnisfilm")
             } else if let image {
                 PannableZoomImage(

@@ -104,6 +104,35 @@ enum PhotoLibraryService {
         return assetID
     }
 
+    /// Saves a downloaded movie from a file URL. Photos rejects some valid
+    /// movie containers when they are submitted as an in-memory data resource
+    /// (PHPhotosErrorDomain 3300), while the same file is accepted through the
+    /// file-URL API.
+    @discardableResult
+    static func saveOrAddExisting(
+        fileURL: URL,
+        generationID: String,
+        albumNames: [String]
+    ) async throws -> String {
+        let names = normalizedAlbumNames(albumNames)
+        let status = await PHPhotoLibrary.requestAuthorization(for: .readWrite)
+        guard status == .authorized || status == .limited else { throw PhotoLibraryError.permission }
+
+        var assetID = await PhotoAssetLinkStore.shared.assetID(for: generationID)
+        if let stored = assetID,
+           PHAsset.fetchAssets(withLocalIdentifiers: [stored], options: nil).firstObject == nil {
+            await PhotoAssetLinkStore.shared.remove(generationID: generationID)
+            assetID = nil
+        }
+        if assetID == nil {
+            assetID = try await createVideoAsset(from: fileURL)
+        }
+        guard let assetID else { throw PhotoLibraryError.saveFailed }
+        await PhotoAssetLinkStore.shared.set(assetID: assetID, generationID: generationID)
+        try await addAsset(assetID, to: names)
+        return assetID
+    }
+
     @discardableResult
     static func saveAutomatically(_ data: Data, generationID: String, alreadyClaimed: Bool = false) async throws -> Bool {
         guard UserDefaults.standard.bool(forKey: "autoSavePhotos") else {
@@ -136,11 +165,44 @@ enum PhotoLibraryService {
     }
 
     private static func createAsset(from data: Data) async throws -> String {
+        if isVideo(data) {
+            let temporaryURL = FileManager.default.temporaryDirectory
+                .appendingPathComponent("CDance-\(UUID().uuidString).mp4")
+            defer { try? FileManager.default.removeItem(at: temporaryURL) }
+            do {
+                try data.write(to: temporaryURL, options: .atomic)
+                return try await createVideoAsset(from: temporaryURL)
+            } catch is PhotoLibraryError {
+                throw PhotoLibraryError.saveFailed
+            } catch {
+                throw PhotoLibraryError.saveFailed
+            }
+        }
         var assetID: String?
-        try await PHPhotoLibrary.shared().performChanges {
-            let request = PHAssetCreationRequest.forAsset()
-            request.addResource(with: isVideo(data) ? .video : .photo, data: data, options: nil)
-            assetID = request.placeholderForCreatedAsset?.localIdentifier
+        do {
+            try await PHPhotoLibrary.shared().performChanges {
+                let request = PHAssetCreationRequest.forAsset()
+                request.addResource(with: .photo, data: data, options: nil)
+                assetID = request.placeholderForCreatedAsset?.localIdentifier
+            }
+        } catch {
+            throw PhotoLibraryError.saveFailed
+        }
+        guard let assetID else { throw PhotoLibraryError.saveFailed }
+        return assetID
+    }
+
+    private static func createVideoAsset(from fileURL: URL) async throws -> String {
+        guard FileManager.default.fileExists(atPath: fileURL.path) else { throw PhotoLibraryError.saveFailed }
+        var assetID: String?
+        do {
+            try await PHPhotoLibrary.shared().performChanges {
+                let request = PHAssetCreationRequest.forAsset()
+                request.addResource(with: .video, fileURL: fileURL, options: nil)
+                assetID = request.placeholderForCreatedAsset?.localIdentifier
+            }
+        } catch {
+            throw PhotoLibraryError.saveFailed
         }
         guard let assetID else { throw PhotoLibraryError.saveFailed }
         return assetID
