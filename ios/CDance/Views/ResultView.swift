@@ -1,6 +1,12 @@
 import SwiftUI
 import AVKit
 
+enum GalleryMediaLoadPolicy {
+    static func requiresLoad(isVideo: Bool, hasPreviewImage: Bool, hasVideoFile: Bool) -> Bool {
+        isVideo ? !hasVideoFile : !hasPreviewImage
+    }
+}
+
 struct ResultView: View {
     @EnvironmentObject private var store: AppStore
     @Environment(\.dismiss) private var dismiss
@@ -793,10 +799,14 @@ struct HistoryGalleryViewer: View {
     }
 
     private func loadSelection() async {
-        if images[selectionID] == nil,
-           !failedIDs.contains(selectionID),
+        if !failedIDs.contains(selectionID),
            let generation = generations.first(where: { $0.id == selectionID }) {
-            await loadImage(for: generation)
+            let needsMedia = GalleryMediaLoadPolicy.requiresLoad(
+                isVideo: generation.resultImage?.isVideo == true,
+                hasPreviewImage: images[selectionID] != nil,
+                hasVideoFile: videos[selectionID] != nil
+            )
+            if needsMedia { await loadImage(for: generation) }
         }
         guard !Task.isCancelled else { return }
         await prefetchNeighbors()
@@ -814,11 +824,11 @@ struct HistoryGalleryViewer: View {
     }
 
     private func loadImage(for generation: Generation) async {
-        guard images[generation.id] == nil,
-              !failedIDs.contains(generation.id),
+        guard !failedIDs.contains(generation.id),
               let apiImage = generation.resultImage else { return }
         do {
             if apiImage.isVideo {
+                guard videos[generation.id] == nil else { return }
                 videos[generation.id] = try await APIClient.shared.mediaFileURL(apiImage)
                 if images[generation.id] == nil,
                    let thumbnail = try? await APIClient.shared.thumbnailData(apiImage, maxSize: 1_024) {
@@ -826,6 +836,7 @@ struct HistoryGalleryViewer: View {
                 }
                 return
             }
+            guard images[generation.id] == nil else { return }
             let data = try await APIClient.shared.imageData(apiImage)
             guard !Task.isCancelled else { return }
             let decoded = await Task.detached(priority: .userInitiated) {

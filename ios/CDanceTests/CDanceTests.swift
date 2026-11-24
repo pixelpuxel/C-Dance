@@ -3,6 +3,19 @@ import UIKit
 @testable import CDance
 
 final class CDanceTests:XCTestCase{
+    func testVideoGalleryLoadsMovieEvenWhenPreviewImageAlreadyExists() {
+        XCTAssertTrue(GalleryMediaLoadPolicy.requiresLoad(
+            isVideo: true,
+            hasPreviewImage: true,
+            hasVideoFile: false
+        ))
+        XCTAssertFalse(GalleryMediaLoadPolicy.requiresLoad(
+            isVideo: true,
+            hasPreviewImage: true,
+            hasVideoFile: true
+        ))
+    }
+
     func testLiveServerPayloadsDecodeInTheApp() async throws {
         let integrationToken = ProcessInfo.processInfo.environment["CDANCE_INTEGRATION_TOKEN"]
             ?? UserDefaults.standard.string(forKey: "cdance.integrationToken")
