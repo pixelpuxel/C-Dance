@@ -135,12 +135,10 @@ struct ResultView: View {
             Group {
                 if generation.resultImage?.isVideo == true, let videoURL {
                     ZStack(alignment: .bottomTrailing) {
-                        VideoPlayer(player: AVPlayer(url: videoURL))
+                        SystemVideoPlayer(url: videoURL, autoplay: false)
                             .frame(maxWidth: .infinity)
                             .aspectRatio(Self.videoAspectRatio(for: generation.aspectRatio), contentMode: .fit)
-                            .contentShape(Rectangle())
-                            .simultaneousGesture(TapGesture().onEnded { openFilmGallery() })
-                            .accessibilityLabel("Erzeugter Film im Vollbild öffnen")
+                            .accessibilityLabel("Erzeugter Film")
                         Button { openFilmGallery() } label: {
                             Label("Vollbild", systemImage: "arrow.up.left.and.arrow.down.right")
                                 .font(.caption.weight(.semibold))
