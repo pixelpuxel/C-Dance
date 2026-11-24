@@ -121,7 +121,8 @@ actor APIClient {
         guard AppModeConfiguration.mode == .server else {
             return SeedreamLibraryPage(items: [], total: 0)
         }
-        let escaped = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        let queryCharacters = CharacterSet.urlQueryAllowed.subtracting(CharacterSet(charactersIn: "&?=+#"))
+        let escaped = query.addingPercentEncoding(withAllowedCharacters: queryCharacters) ?? ""
         return try await request("/seedream-library/images?limit=100&query=\(escaped)")
     }
     func importSeedreamImage(_ sourceImageID: String) async throws -> APIImage {

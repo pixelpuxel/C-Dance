@@ -1358,6 +1358,17 @@ private struct SeedreamLibraryPicker: View {
                 guard !Task.isCancelled else { return }
                 await load()
             }
+            .alert(
+                "Hinweis",
+                isPresented: Binding(
+                    get: { errorMessage != nil && !items.isEmpty },
+                    set: { if !$0 { errorMessage = nil } }
+                )
+            ) {
+                Button("OK") { errorMessage = nil }
+            } message: {
+                Text(errorMessage ?? "")
+            }
         }
     }
 
