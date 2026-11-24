@@ -8,6 +8,7 @@ from PIL import Image
 from app.database import SessionLocal
 from app.models import DeviceRegistration, Generation, GenerationImage, GenerationKind, GenerationReference, GenerationStatus, ReferenceAsset
 from app.services.storage import get_storage
+from app.services.seedream_library import SeedreamLibraryPage
 
 
 def headers(token):
@@ -108,6 +109,51 @@ def test_authenticated_image_lookup_refreshes_download_url(client, token):
     assert refreshed.status_code == 200, refreshed.text
     assert refreshed.json()["id"] == uploaded.json()["id"]
     assert "token=" in refreshed.json()["download_url"]
+
+
+def test_seedream_online_library_lists_and_imports_completed_image(client, token):
+    remote_image = {
+        "id": "remote-image",
+        "role": "result",
+        "mime_type": "image/png",
+        "width": 32,
+        "height": 32,
+        "byte_size": len(png()),
+        "download_url": "https://seedream.example.test/image",
+    }
+    page = SeedreamLibraryPage(
+        items=[{
+            "id": "remote-generation:remote-image",
+            "generation_id": "remote-generation",
+            "source_image_id": "remote-image",
+            "prompt": "Kamerafahrt",
+            "final_prompt": "Kamerafahrt",
+            "created_at": "2026-11-24T12:00:00Z",
+            "image": remote_image,
+        }],
+        total=1,
+    )
+    with patch("app.api.routes.list_seedream_images", return_value=page):
+        listed = client.get("/api/v1/seedream-library/images?query=Kamera", headers=headers(token))
+    assert listed.status_code == 200, listed.text
+    assert listed.json()["items"][0]["source_image_id"] == "remote-image"
+
+    with patch(
+        "app.api.routes.download_seedream_image",
+        return_value=(png(), "image/png", "seedream-remote-image"),
+    ) as download:
+        imported = client.post(
+            "/api/v1/seedream-library/images/remote-image/import",
+            headers=headers(token),
+        )
+        imported_again = client.post(
+            "/api/v1/seedream-library/images/remote-image/import",
+            headers=headers(token),
+        )
+    assert imported.status_code == 200, imported.text
+    assert imported.json()["role"] == "seedream_reference"
+    assert imported_again.json()["id"] == imported.json()["id"]
+    download.assert_called_once()
 
 
 @pytest.mark.parametrize(

@@ -117,6 +117,18 @@ actor APIClient {
     func models() async throws -> ModelsResponse { if AppModeConfiguration.mode == .standalone { return await StandaloneService.shared.models() }; return try await request("/models") }
     func prompts() async throws -> [PromptTemplate] { if AppModeConfiguration.mode == .standalone { return await StandaloneService.shared.prompts() }; return try await request("/prompts") }
     func referenceAssets() async throws -> [ReferenceAsset] { if AppModeConfiguration.mode == .standalone { return await StandaloneService.shared.referenceAssets() }; return try await request("/reference-assets") }
+    func seedreamLibrary(query: String = "") async throws -> SeedreamLibraryPage {
+        guard AppModeConfiguration.mode == .server else {
+            return SeedreamLibraryPage(items: [], total: 0)
+        }
+        let escaped = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        return try await request("/seedream-library/images?limit=100&query=\(escaped)")
+    }
+    func importSeedreamImage(_ sourceImageID: String) async throws -> APIImage {
+        guard AppModeConfiguration.mode == .server else { throw APIClientError.notAuthenticated }
+        let escaped = sourceImageID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? sourceImageID
+        return try await request("/seedream-library/images/\(escaped)/import", method: "POST", body: Optional<[String:String]>.none)
+    }
     func history() async throws -> GenerationPage {
         if AppModeConfiguration.mode == .standalone { return await StandaloneService.shared.history() }
 

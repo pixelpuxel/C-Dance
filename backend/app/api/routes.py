@@ -44,6 +44,7 @@ from app.services.generations import clone_generation, create_generation, load_g
 from app.services.images import export_image, inspect_image, make_thumbnail
 from app.services.provider_config import provider_api_key, provider_status, remove_provider_api_key, save_provider_api_key
 from app.services.serializers import generation_dict, image_dict, prompt_dict, reference_asset_dict
+from app.services.seedream_library import SeedreamLibraryError, download_seedream_image, list_seedream_images
 from app.services.storage import get_storage
 
 router = APIRouter()
@@ -368,6 +369,63 @@ async def upload_image(
 def list_images(limit: int = Query(50, ge=1, le=100), user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     items = db.scalars(select(GenerationImage).where(GenerationImage.user_id == user.id).order_by(GenerationImage.created_at.desc()).limit(limit)).all()
     return [image_dict(item) for item in items]
+
+
+@router.get("/seedream-library/images", tags=["Seedream-Online-Bibliothek"])
+async def seedream_library_images(
+    query: str = Query("", max_length=300),
+    limit: int = Query(60, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    user: User = Depends(get_current_user),
+):
+    del user
+    try:
+        page = await list_seedream_images(query=query, limit=limit, offset=offset)
+    except SeedreamLibraryError as exc:
+        raise HTTPException(503, detail={"code": "seedream_library_unavailable", "message": str(exc)}) from exc
+    return {"items": page.items, "total": page.total, "limit": limit, "offset": offset}
+
+
+@router.post("/seedream-library/images/{image_id}/import", tags=["Seedream-Online-Bibliothek"])
+async def import_seedream_library_image(
+    image_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    source_marker = f"seedream-library:{image_id}"
+    existing = db.scalar(
+        select(GenerationImage).where(
+            GenerationImage.user_id == user.id,
+            GenerationImage.provider_url == source_marker,
+        )
+    )
+    if existing:
+        return image_dict(existing)
+    try:
+        data, content_type, filename = await download_seedream_image(image_id)
+        if len(data) > 30 * 1024 * 1024:
+            raise SeedreamLibraryError("Das Seedream-Bild ist größer als 30 MB.")
+        info = inspect_image(data, content_type)
+    except (SeedreamLibraryError, ValueError) as exc:
+        message = str(exc) or "Das Seedream-Bild konnte nicht übernommen werden."
+        raise HTTPException(422, detail={"code": "seedream_import_failed", "message": message}) from exc
+    key, size = get_storage().put(data, info.extension)
+    record = GenerationImage(
+        user_id=user.id,
+        generation_id=None,
+        storage_key=key,
+        original_filename=f"{filename}.{info.extension}",
+        mime_type=info.mime_type,
+        width=info.width,
+        height=info.height,
+        byte_size=size,
+        role="seedream_reference",
+        provider_url=source_marker,
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return image_dict(record)
 
 
 @router.get("/images/{image_id}", tags=["Bilder"])

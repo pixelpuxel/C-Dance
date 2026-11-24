@@ -168,6 +168,28 @@ struct ReferenceAsset: Codable, Identifiable, Hashable {
     }
 }
 
+struct SeedreamLibraryItem: Codable, Identifiable, Hashable {
+    let id: String
+    let generationID: String
+    let sourceImageID: String
+    let prompt: String
+    let finalPrompt: String
+    let createdAt: Date
+    let image: APIImage
+    enum CodingKeys: String, CodingKey {
+        case id, prompt, image
+        case generationID = "generation_id"
+        case sourceImageID = "source_image_id"
+        case finalPrompt = "final_prompt"
+        case createdAt = "created_at"
+    }
+}
+
+struct SeedreamLibraryPage: Codable {
+    let items: [SeedreamLibraryItem]
+    let total: Int
+}
+
 enum LibrarySection: String, CaseIterable, Identifiable {
     case prompts
     case references

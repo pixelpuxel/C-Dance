@@ -38,6 +38,12 @@ class Settings(BaseSettings):
     provider_timeout_seconds: int = 2100
     provider_poll_interval_seconds: int = 20
 
+    # Optional read-only bridge to a Seedream server. The API key belongs to a
+    # dedicated Seedream account and never leaves this backend.
+    seedream_library_base_url: str = ""
+    seedream_library_api_key: str = ""
+    seedream_library_timeout_seconds: int = 30
+
     apns_team_id: str = ""
     apns_key_id: str = ""
     apns_private_key_b64: str = ""

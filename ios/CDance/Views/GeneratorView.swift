@@ -23,6 +23,7 @@ struct GeneratorView: View {
     @State private var editingParent: Generation?
     @State private var markupContext: MarkupEditContext?
     @State private var showCamera = false
+    @State private var showSeedreamLibrary = false
     @State private var generationStatus = ""
     @State private var submitting = false
     @State private var draftRestored = false
@@ -237,6 +238,12 @@ struct GeneratorView: View {
             CameraPicker { image in addReference(image) }
                 .ignoresSafeArea()
         }
+        .sheet(isPresented: $showSeedreamLibrary) {
+            SeedreamLibraryPicker(remainingCapacity: max(0, commonReferenceLimit - references.count)) { reference in
+                guard references.count < commonReferenceLimit else { return }
+                references.append(reference)
+            }
+        }
         .sheet(item: $markupContext) { context in
             MarkupEditorView(image: context.image) { data, instruction in
                 applyMarkup(data, instruction: instruction, replacing: context.referenceID)
@@ -381,6 +388,15 @@ struct GeneratorView: View {
                     }
                     .buttonStyle(.bordered)
                 }
+            }
+            if AppModeConfiguration.mode == .server {
+                Button { showSeedreamLibrary = true } label: {
+                    Label("Seedream Online durchsuchen", systemImage: "sparkles.rectangle.stack")
+                        .frame(maxWidth: .infinity, minHeight: 30)
+                }
+                .buttonStyle(.bordered)
+                .disabled(references.count >= commonReferenceLimit)
+                .accessibilityHint("Zeigt fertige Bilder aus deiner Seedream-Online-Bibliothek")
             }
         }
         .dropDestination(for: Data.self) { items, _ in
@@ -1273,6 +1289,146 @@ private struct SavedReferenceChip: View {
             } catch {
                 failed = true
             }
+        }
+    }
+}
+
+private struct SeedreamLibraryPicker: View {
+    @Environment(\.dismiss) private var dismiss
+    let remainingCapacity: Int
+    let onSelect: (LocalReference) -> Void
+
+    @State private var query = ""
+    @State private var items: [SeedreamLibraryItem] = []
+    @State private var total = 0
+    @State private var loading = true
+    @State private var importingIDs: Set<String> = []
+    @State private var selectedIDs: Set<String> = []
+    @State private var errorMessage: String?
+
+    private let columns = [GridItem(.adaptive(minimum: 108, maximum: 170), spacing: 10)]
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if loading && items.isEmpty {
+                    ProgressView("Seedream-Bilder werden geladen …")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if let errorMessage, items.isEmpty {
+                    ContentUnavailableView(
+                        "Bibliothek nicht erreichbar",
+                        systemImage: "wifi.exclamationmark",
+                        description: Text(errorMessage)
+                    )
+                } else if items.isEmpty {
+                    ContentUnavailableView.search(text: query)
+                } else {
+                    ScrollView {
+                        LazyVGrid(columns: columns, spacing: 10) {
+                            ForEach(items) { item in
+                                Button { select(item) } label: {
+                                    SeedreamLibraryTile(
+                                        item: item,
+                                        selected: selectedIDs.contains(item.id),
+                                        importing: importingIDs.contains(item.id)
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                                .disabled(importingIDs.contains(item.id) || selectedIDs.count >= remainingCapacity)
+                            }
+                        }
+                        .padding(14)
+                    }
+                }
+            }
+            .background(CDanceTheme.background)
+            .navigationTitle("Seedream Online")
+            .navigationBarTitleDisplayMode(.inline)
+            .searchable(text: $query, prompt: "Prompt durchsuchen")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Schließen") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Text("\(selectedIDs.count)/\(remainingCapacity)")
+                        .font(.subheadline.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .task(id: query) {
+                if !query.isEmpty { try? await Task.sleep(for: .milliseconds(350)) }
+                guard !Task.isCancelled else { return }
+                await load()
+            }
+        }
+    }
+
+    private func load() async {
+        loading = true
+        errorMessage = nil
+        do {
+            let page = try await APIClient.shared.seedreamLibrary(query: query)
+            guard !Task.isCancelled else { return }
+            items = page.items
+            total = page.total
+        } catch {
+            guard !Task.isCancelled else { return }
+            errorMessage = error.localizedDescription
+        }
+        loading = false
+    }
+
+    private func select(_ item: SeedreamLibraryItem) {
+        guard !selectedIDs.contains(item.id), selectedIDs.count < remainingCapacity else { return }
+        importingIDs.insert(item.id)
+        Task {
+            do {
+                let image = try await APIClient.shared.importSeedreamImage(item.sourceImageID)
+                let data = try await APIClient.shared.thumbnailData(image, maxSize: 512)
+                guard let preview = UIImage(data: data) else { throw APIClientError.invalidImage }
+                selectedIDs.insert(item.id)
+                onSelect(LocalReference(remote: image, preview: preview))
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+            importingIDs.remove(item.id)
+        }
+    }
+}
+
+private struct SeedreamLibraryTile: View {
+    let item: SeedreamLibraryItem
+    let selected: Bool
+    let importing: Bool
+    @State private var preview: UIImage?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ZStack(alignment: .topTrailing) {
+                Color(uiColor: .tertiarySystemGroupedBackground)
+                if let preview {
+                    Image(uiImage: preview).resizable().scaledToFill()
+                } else {
+                    ProgressView()
+                }
+                if importing {
+                    ProgressView().padding(7).background(.ultraThinMaterial, in: Circle()).padding(6)
+                } else if selected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.title2).foregroundStyle(.black, CDanceTheme.accent)
+                        .padding(6)
+                }
+            }
+            .aspectRatio(1, contentMode: .fit)
+            .clipShape(RoundedRectangle(cornerRadius: 13))
+            Text(item.finalPrompt.isEmpty ? "Ohne Prompt" : item.finalPrompt)
+                .font(.caption)
+                .foregroundStyle(.primary)
+                .lineLimit(2)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(selected ? "Seedream-Bild ausgewählt" : "Seedream-Bild auswählen")
+        .task(id: item.image.downloadURL) {
+            guard let data = try? await APIClient.shared.thumbnailData(item.image, maxSize: 320) else { return }
+            preview = UIImage(data: data)
         }
     }
 }
