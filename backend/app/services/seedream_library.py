@@ -37,6 +37,18 @@ async def list_seedream_images(query: str = "", limit: int = 60, offset: int = 0
 
     try:
         async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+            compact_response = await client.get(
+                f"{base_url}/integrations/finished-images",
+                headers=headers,
+                params={"query": query, "limit": limit, "offset": offset},
+            )
+            if compact_response.status_code != 404:
+                compact_response.raise_for_status()
+                compact = compact_response.json()
+                return SeedreamLibraryPage(items=compact.get("items", []), total=int(compact.get("total", 0)))
+
+            # Compatibility with older self-hosted Seedream versions. Current
+            # servers use the compact endpoint above and need only one request.
             while remote_offset < remote_total:
                 response = await client.get(
                     f"{base_url}/generations",
