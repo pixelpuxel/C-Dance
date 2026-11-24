@@ -624,8 +624,7 @@ struct HistoryGalleryViewer: View {
         _images = State(initialValue: initialImage.map { [initialGenerationID: $0] } ?? [:])
         _favorites = State(initialValue: favoriteGenerationIDs)
         _ratings = State(initialValue: generationRatings)
-        let initialIsVideo = generations.first(where: { $0.id == initialGenerationID })?.resultImage?.isVideo == true
-        _controlsVisible = State(initialValue: !initialIsVideo)
+        _controlsVisible = State(initialValue: true)
     }
 
     var body: some View {
@@ -640,8 +639,8 @@ struct HistoryGalleryViewer: View {
                         title: "Ergebnisfilm",
                         onClose: { dismiss() },
                         onSingleTap: {
-                            guard generation.resultImage?.isVideo == true else { dismiss(); return }
-                            withAnimation(.easeInOut(duration: 0.18)) { controlsVisible.toggle() }
+                            guard generation.resultImage?.isVideo != true else { return }
+                            dismiss()
                         },
                         onZoomChanged: { zoomed in
                             if zoomed { zoomedGenerationIDs.insert(generation.id) }
@@ -679,8 +678,7 @@ struct HistoryGalleryViewer: View {
             .task(id: selectionID) { await loadSelection() }
             .onChange(of: selectionID) { _, newValue in
                 onSelection(newValue)
-                let isVideo = generations.first(where: { $0.id == newValue })?.resultImage?.isVideo == true
-                withAnimation(.easeInOut(duration: 0.18)) { controlsVisible = !isVideo }
+                withAnimation(.easeInOut(duration: 0.18)) { controlsVisible = true }
             }
             .onAppear { onSelection(selectionID) }
             .safeAreaInset(edge: .bottom) {
@@ -877,9 +875,7 @@ private struct GalleryImagePage: View {
         ZStack {
             Color.black
             if isVideo, let videoURL {
-                VideoPlayer(player: AVPlayer(url: videoURL))
-                    .contentShape(Rectangle())
-                    .simultaneousGesture(TapGesture().onEnded(onSingleTap))
+                SystemVideoPlayer(url: videoURL, autoplay: true)
                     .accessibilityLabel("Ergebnisfilm")
             } else if let image {
                 PannableZoomImage(
@@ -897,6 +893,50 @@ private struct GalleryImagePage: View {
             }
         }
         .background(.black)
+    }
+}
+
+/// Uses Apple's standard playback interface so a tap reveals the familiar
+/// play/pause, scrubbing, volume, AirPlay and Picture-in-Picture controls.
+/// Keeping those controls in AVKit also avoids a gallery tap being mistaken
+/// for a request to dismiss the film.
+private struct SystemVideoPlayer: UIViewControllerRepresentable {
+    let url: URL
+    let autoplay: Bool
+
+    final class Coordinator {
+        var player: AVPlayer?
+        var url: URL?
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    func makeUIViewController(context: Context) -> AVPlayerViewController {
+        let controller = AVPlayerViewController()
+        let player = AVPlayer(url: url)
+        controller.player = player
+        controller.showsPlaybackControls = true
+        controller.allowsPictureInPicturePlayback = true
+        controller.canStartPictureInPictureAutomaticallyFromInline = false
+        controller.videoGravity = .resizeAspect
+        context.coordinator.player = player
+        context.coordinator.url = url
+        if autoplay { player.play() }
+        return controller
+    }
+
+    func updateUIViewController(_ controller: AVPlayerViewController, context: Context) {
+        guard context.coordinator.url != url else { return }
+        let player = AVPlayer(url: url)
+        controller.player = player
+        context.coordinator.player = player
+        context.coordinator.url = url
+        if autoplay { player.play() }
+    }
+
+    static func dismantleUIViewController(_ controller: AVPlayerViewController, coordinator: Coordinator) {
+        coordinator.player?.pause()
+        controller.player = nil
     }
 }
 

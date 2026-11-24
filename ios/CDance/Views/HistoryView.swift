@@ -424,11 +424,19 @@ struct HistoryView: View {
             var urls: [URL] = []
             for (index, generation) in selectedGenerations.enumerated() {
                 guard let image = generation.resultImage else { continue }
-                let data = try await APIClient.shared.imageData(image)
-                let fileExtension = image.mimeType.lowercased().contains("png") ? "png" : "jpg"
-                let url = folder.appendingPathComponent("C-Dance-\(index + 1).\(fileExtension)")
-                try data.write(to: url, options: .atomic)
-                urls.append(url)
+                if image.isVideo {
+                    let source = try await APIClient.shared.mediaFileURL(image)
+                    let fileExtension = image.mimeType == "video/quicktime" ? "mov" : "mp4"
+                    let destination = folder.appendingPathComponent("C-Dance-\(index + 1).\(fileExtension)")
+                    try FileManager.default.copyItem(at: source, to: destination)
+                    urls.append(destination)
+                } else {
+                    let data = try await APIClient.shared.imageData(image)
+                    let fileExtension = image.mimeType.lowercased().contains("png") ? "png" : "jpg"
+                    let url = folder.appendingPathComponent("C-Dance-\(index + 1).\(fileExtension)")
+                    try data.write(to: url, options: .atomic)
+                    urls.append(url)
+                }
             }
             guard !urls.isEmpty else { throw APIClientError.invalidImage }
             shareURLs = urls
@@ -446,13 +454,22 @@ struct HistoryView: View {
             var saved = 0
             for generation in selectedGenerations {
                 guard let image = generation.resultImage else { continue }
-                let data = try await APIClient.shared.imageData(image)
-                try await PhotoLibraryService.saveOrAddExisting(
-                    data,
-                    generationID: generation.id,
-                    albumNames: albumNames,
-                    sourceAlbumName: store.albumName
-                )
+                if image.isVideo {
+                    let fileURL = try await APIClient.shared.mediaFileURL(image)
+                    try await PhotoLibraryService.saveOrAddExisting(
+                        fileURL: fileURL,
+                        generationID: generation.id,
+                        albumNames: albumNames
+                    )
+                } else {
+                    let data = try await APIClient.shared.imageData(image)
+                    try await PhotoLibraryService.saveOrAddExisting(
+                        data,
+                        generationID: generation.id,
+                        albumNames: albumNames,
+                        sourceAlbumName: store.albumName
+                    )
+                }
                 saved += 1
             }
             let destination = albumNames.isEmpty
@@ -1403,7 +1420,7 @@ private struct HistoryListRow: View {
     let onDelete: () -> Void
 
     @State private var activeAction: HistoryQuickAction?
-    @State private var shareImage: UIImage?
+    @State private var shareItem: HistoryShareItem?
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -1475,7 +1492,7 @@ private struct HistoryListRow: View {
             }
             Button("Dauerhaft löschen", systemImage: "trash", role: .destructive, action: onDelete)
         }
-        .sheet(item: $shareImage) { image in ShareSheet(items: [image]) }
+        .sheet(item: $shareItem) { item in ShareSheet(items: [item.value]) }
     }
 
     private func quickActionButton(_ action: HistoryQuickAction) -> some View {
@@ -1533,6 +1550,19 @@ private struct HistoryListRow: View {
         activeAction = action
         defer { activeAction = nil }
         do {
+            if apiImage.isVideo, action == .share || action == .photos {
+                let fileURL = try await APIClient.shared.mediaFileURL(apiImage)
+                if action == .share {
+                    shareItem = HistoryShareItem(value: fileURL)
+                } else {
+                    try await PhotoLibraryService.saveOrAddExisting(
+                        fileURL: fileURL,
+                        generationID: generation.id,
+                        albumNames: store.autoSaveAlbum ? [store.albumName] : []
+                    )
+                }
+                return
+            }
             let data = try await APIClient.shared.imageData(apiImage)
             guard let image = await Task.detached(priority: .userInitiated, operation: {
                 UIImage.referencePreview(from: data, maxPixelSize: 4_096)
@@ -1545,7 +1575,7 @@ private struct HistoryListRow: View {
                 store.pendingReference = ReferenceRequest(image: apiImage, preview: image)
                 store.selectedTab = 0
             case .share:
-                shareImage = image
+                shareItem = HistoryShareItem(value: image)
             case .photos:
                 try await PhotoLibraryService.saveOrAddExisting(
                     data,
@@ -1586,6 +1616,11 @@ private struct HistoryListRow: View {
         default: .secondary
         }
     }
+}
+
+private struct HistoryShareItem: Identifiable {
+    let id = UUID()
+    let value: Any
 }
 
 private struct HistoryReferenceInline: View {
@@ -1743,7 +1778,7 @@ private struct RatingContextMenu: View {
 private struct FavoriteGalleryPresentation: Identifiable {
     let id = UUID()
     let generationID: String
-    let image: UIImage
+    let image: UIImage?
 }
 
 struct GenerationAlbumsView: View {
@@ -2056,7 +2091,9 @@ private struct FavoriteAlbumView: View {
     private func open(_ generation: Generation) async {
         guard let apiImage = generation.resultImage else { return }
         do {
-            let data = try await APIClient.shared.imageData(apiImage)
+            let data = apiImage.isVideo
+                ? try await APIClient.shared.thumbnailData(apiImage, maxSize: 1_024)
+                : try await APIClient.shared.imageData(apiImage)
             guard let image = await Task.detached(priority: .userInitiated, operation: {
                 UIImage.referencePreview(from: data, maxPixelSize: 4_096)
             }).value else { throw APIClientError.invalidImage }
@@ -2076,11 +2113,19 @@ private struct FavoriteAlbumView: View {
             var urls: [URL] = []
             for (index, generation) in selectedGenerations.enumerated() {
                 guard let image = generation.resultImage else { continue }
-                let data = try await APIClient.shared.imageData(image)
-                let fileExtension = image.mimeType.lowercased().contains("png") ? "png" : "jpg"
-                let url = folder.appendingPathComponent("C-Dance-\(index + 1).\(fileExtension)")
-                try data.write(to: url, options: .atomic)
-                urls.append(url)
+                if image.isVideo {
+                    let source = try await APIClient.shared.mediaFileURL(image)
+                    let fileExtension = image.mimeType == "video/quicktime" ? "mov" : "mp4"
+                    let destination = folder.appendingPathComponent("C-Dance-\(index + 1).\(fileExtension)")
+                    try FileManager.default.copyItem(at: source, to: destination)
+                    urls.append(destination)
+                } else {
+                    let data = try await APIClient.shared.imageData(image)
+                    let fileExtension = image.mimeType.lowercased().contains("png") ? "png" : "jpg"
+                    let url = folder.appendingPathComponent("C-Dance-\(index + 1).\(fileExtension)")
+                    try data.write(to: url, options: .atomic)
+                    urls.append(url)
+                }
             }
             guard !urls.isEmpty else { throw APIClientError.invalidImage }
             shareURLs = urls
@@ -2098,13 +2143,22 @@ private struct FavoriteAlbumView: View {
             var saved = 0
             for generation in selectedGenerations {
                 guard let image = generation.resultImage else { continue }
-                let data = try await APIClient.shared.imageData(image)
-                try await PhotoLibraryService.saveOrAddExisting(
-                    data,
-                    generationID: generation.id,
-                    albumNames: albumNames,
-                    sourceAlbumName: store.albumName
-                )
+                if image.isVideo {
+                    let fileURL = try await APIClient.shared.mediaFileURL(image)
+                    try await PhotoLibraryService.saveOrAddExisting(
+                        fileURL: fileURL,
+                        generationID: generation.id,
+                        albumNames: albumNames
+                    )
+                } else {
+                    let data = try await APIClient.shared.imageData(image)
+                    try await PhotoLibraryService.saveOrAddExisting(
+                        data,
+                        generationID: generation.id,
+                        albumNames: albumNames,
+                        sourceAlbumName: store.albumName
+                    )
+                }
                 saved += 1
             }
             let destination = albumNames.isEmpty
